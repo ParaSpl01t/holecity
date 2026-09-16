@@ -4,6 +4,9 @@ export const PLAYZONE_SIZE = 200;
 /** Borderzone (concrete path) width around the playzone, in m. */
 export const BORDER_WIDTH = 10;
 
+/** Borderzone height above the playzone, in m. */
+export const BORDER_HEIGHT = 1;
+
 /** Playzone tile side, in m. */
 export const TILE_SIZE = 2;
 

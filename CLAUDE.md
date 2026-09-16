@@ -26,6 +26,8 @@ Absence means undecided, not implied._
 - **Vite** - dev server with HMR, production build.
 - **TypeScript** - strict.
 - **three.js** - WebGL rendering. No UI framework.
+- **Rapier** (`@dimforge/rapier3d-compat`) - physics, approved 2026-09-16. Loaded as its own lazy
+  chunk.
 - **vitest** - unit tests.
 - **Playwright** - headless browser tests and visual checks.
 - **prettier** - formatting.

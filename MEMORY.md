@@ -1,9 +1,9 @@
 # MEMORY
 
-**RESUME:** v0.1 complete (Phases 1-5), live at `https://holecity.vercel.app`. Test scope set
-(`CLAUDE.md`). v0.2 planned as Phases 6-9 in `TODOS.md`. Blocked on three admin decisions marked
-PENDING there: physics library (Rapier proposed), hole vs raised path, hole growth. Next: Phase 6
-raised borderzone (tiling and walls do not depend on the pending decisions).
+**RESUME:** v0.1 complete, live at `https://holecity.vercel.app`. v0.2 planned as Phases 6-9 in
+`TODOS.md`, all admin decisions in (Rapier approved, path covers the hole, temporary `[` / `]`
+and - / + size controls). Building phases 6-9 in one go (admin), local commits only; one
+complete test run and one push at the end.
 
 ## GOTCHAS
 

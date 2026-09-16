@@ -96,17 +96,21 @@ _Requested 2026-09-16: every push to `main` deploys to production, same domain e
 _v0.2.x = phases 6-9, planned from `INBOX.md` `## v0.2.x` (2026-09-16). First bump `minor` ->
 `v0.2.0`. Tests follow the `CLAUDE.md` draft-stage scope._
 
+_2026-09-16, admin: build phases 6-9 in one go with light testing on the way (typecheck, a
+visual check), then one complete test run (unit + browser, updated to the new visuals) and one
+push._
+
 ## Phase 6 - raised borderzone ⬜
 
 - [ ] borderzone raised 1 m: top at y = 1, inner wall facing the playzone, outer wall facing the
       sea. Walls in a darker concrete shade, since unlit flat color needs shade to read as 3D
 - [ ] borderzone tiled like the playzone: 2 m tiles, concrete and concrete tint checker
-- [ ] hole overlapping the raised path: PENDING admin decision. Either the path covers the hole
-      (it slides under the curb), or the hole cuts through the path too
+- [ ] hole overlapping the raised path: decided (2026-09-16, admin): the path covers the hole.
+      Depth does it, since the path top sits 1 m above the hole
 
 ## Phase 7 - physics and objects ⬜
 
-- [ ] physics library: PENDING admin approval (new dependency). Proposed Rapier
+- [x] physics library: Rapier approved (2026-09-16, admin). Proposed as Rapier
       (`@dimforge/rapier3d-compat` 0.20.0, maintained, stable stacking, kinematic bodies, contact
       events). Measured 2026-09-16: 2.86 MB raw, 1.08 MB gzip, loaded as its own lazy chunk and
       cached as immutable. Rejected: cannon-es (774 kB unpacked across all builds, far
@@ -123,6 +127,8 @@ _v0.2.x = phases 6-9, planned from `INBOX.md` `## v0.2.x` (2026-09-16). First bu
 - [ ] rendering: one instanced mesh per shape (cube, sphere, trunk, leaves), per-instance pastel
       colors (trunk brown, leaves a green distinct from the grass, cubes and spheres from a pastel
       set: assumed), matrices synced from physics each frame
+- [ ] lighting for 3D objects: flat unlit color will not read on spheres. Pick a cheap model
+      (baked or toon-like) and align the borderzone wall shading with it
 - [ ] unit tests: placement determinism, size ranges, no overlaps
 
 ## Phase 8 - real hole ⬜
@@ -133,8 +139,9 @@ _v0.2.x = phases 6-9, planned from `INBOX.md` `## v0.2.x` (2026-09-16). First bu
       below. Objects that fit fall in; bigger ones rest and tip on the rim
 - [ ] swallowed objects are removed once they drop below the shaft (assumed: no score yet)
 - [ ] the hole and its ring are never drawn over the outzone, whatever the hole size
-- [ ] hole size vs objects: PENDING admin decision. A fixed 4 m hole never swallows spheres over
-      4 m wide or most cubes. Growth now, or later
+- [ ] temporary hole size controls (2026-09-16, admin): `[` shrinks, `]` grows (direction
+      assumed from the - / + order); on touch, small - and + buttons bottom-right. Step and
+      min/max are tunable constants. Real growth comes later
 
 ## Phase 9 - squashy leaves ⬜
 
