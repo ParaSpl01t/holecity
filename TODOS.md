@@ -62,7 +62,8 @@ real playable draft. Scope set in `CLAUDE.md` ("Test scope while the game is a d
       cursor leave, blur, last-input arbitration, finger release. No console errors
 - [x] perf sanity: frame times and draw calls per frame logged on desktop and phone (3 draws)
 - [x] three.js in its own chunk (554 kB; game code 6.5 kB) + `/assets/*` immutable in
-      `vercel.json`. Not yet pushed, so the header is not yet verified on production
+      `vercel.json`. Verified on production v0.1.6: `three-*.js` sends
+      `public, max-age=31536000, immutable`, the page stays `max-age=0, must-revalidate`
 - [x] every test seen failing once: descoped by admin (2026-09-16). Done for all 23 unit tests
       and browser round A (15 of 18 red at the intended assertion). Rounds B (context restore,
       arbitration) and C (perf) not run
