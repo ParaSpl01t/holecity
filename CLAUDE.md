@@ -23,6 +23,13 @@ _AI-updatable: add each new term._
 _AI-updatable: add each library/tech as it is chosen. An entry here means we committed to it.
 Absence means undecided, not implied._
 
+- **Vite** - dev server with HMR, production build.
+- **TypeScript** - strict.
+- **three.js** - WebGL rendering. No UI framework.
+- **vitest** - unit tests.
+- **Playwright** - headless browser tests and visual checks.
+- **prettier** - formatting.
+
 ---
 
 # AI Rules
@@ -32,5 +39,6 @@ _AI-updatable: refine whenever a new rule is agreed in chat._
 Only project-specific rules belong here. Everything general lives in `~/.claude/CLAUDE.md` and is
 not restated in this file.
 
-- **Performance is never traded away.** The game must run well on low-end devices. Every addition
-  is measured against the perf budget in `MEMORY.md`, and one that breaks it does not land.
+- **Performance by best practice and common sense** (2026-09-16). No low-end device target and no
+  numeric budget. Every addition is weighed for its per-frame cost: work that can happen once never
+  happens per frame, the DOM is not written per frame, draw calls stay minimal.

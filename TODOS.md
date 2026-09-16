@@ -4,12 +4,12 @@ _v0.1.x = phases 1-5, planned from `INBOX.md` `## v0.1.x` (2026-09-16)._
 
 ## Phase 1 - foundation ⬜
 
-- [ ] stack approved. Proposed: Vite + TypeScript + three.js, no UI framework (no HUD or lobby
+- [x] stack approved (2026-09-16): Vite + TypeScript + three.js, no UI framework (no HUD or lobby
       yet). Dev: vitest, @playwright/test, prettier
 - [ ] scaffold: `package.json` created at `0.0.0` (first bump `minor` -> `v0.1.0`, then `patch`),
       scripts `dev` / `build` / `check` / `test`, `.gitignore`
-- [ ] perf budget recorded in `MEMORY.md` before any rendering: target device class, fps floor,
-      draw calls, gzipped bundle size
+- [x] perf approach decided (2026-09-16): best practices and common sense. No low-end device
+      target, no numeric budget
 - [ ] world units: 1 unit = 1 m, y up, playzone centered on the origin
 - [ ] renderer: DPR capped, no shadow maps, no post-processing, antialias kept only if measured
       affordable, resize and WebGL context loss handled
@@ -30,7 +30,8 @@ _v0.1.x = phases 1-5, planned from `INBOX.md` `## v0.1.x` (2026-09-16)._
 
 ## Phase 3 - player and camera ⬜
 
-- [ ] hole: black disc, 2 m radius, 1 m yellow ring (assumed outside the disc, 3 m total)
+- [ ] hole: black disc 4 m wide (2 m radius), 1 m yellow ring outside it, 3 m total radius
+      (confirmed 2026-09-16)
 - [ ] camera: perspective, looking down with a slight tilt, hard-locked on the hole (no easing).
       Visible ground width held steady between portrait and landscape
 - [ ] movement: dt-based, capped speed. Hole center clamped to playzone bounds, so every corner is
@@ -47,14 +48,19 @@ _v0.1.x = phases 1-5, planned from `INBOX.md` `## v0.1.x` (2026-09-16)._
 - [ ] browser (Playwright, headless): frames drawn and non-blank, FPS counter bottom-left with its
       styles, WASD / mouse / touch each move the view (measured on pixels, not inferred), no
       console errors
-- [ ] low-end run: CPU throttling, mobile viewport and DPR, frame times checked against the budget
+- [ ] perf sanity: mobile viewport and DPR, draw calls and frame times logged to catch regressions
+      (no pass/fail budget)
 - [ ] every test seen failing once with its violation injected
 
 ## Phase 5 - vercel ⬜
 
 _Starts only on explicit request._
 
-- [ ] push policy decided: once Git integration is on, a push to `main` is a production deploy
+- [ ] push policy decided: once Git integration is on, a push to `main` is a production deploy.
+      Open: whether "need public production deployments" (2026-09-16) means pushing `main` needs
+      no per-deploy ask
+- [ ] production deployments public: no Vercel Authentication on the production domain
+      (2026-09-16)
 - [ ] project `holecity` linked to `ParaSpl01t/holecity`: production branch `main`, Vite preset,
       `pnpm build`
 - [ ] `holecity.vercel.app` is the project's production domain, auto-assigned to every new

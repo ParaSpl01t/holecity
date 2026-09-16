@@ -1,7 +1,7 @@
 # MEMORY
 
-**RESUME:** v0.1 planned in `TODOS.md` (phases 1-5), no code yet. Blocked on Phase 1 stack
-approval and the open hole-size assumption (Phase 3). Next: Phase 1 scaffold.
+**RESUME:** Phase 1 (foundation) in progress: stack approved, hole size confirmed. Open: Phase 5
+push policy. Next: scaffold, start dev server, renderer + loop + FPS counter.
 
 ## GOTCHAS
 
