@@ -64,7 +64,7 @@ _v0.1.x = phases 1-5, planned from `INBOX.md` `## v0.1.x` (2026-09-16)._
       Needs a `vite.config.ts`
 - [ ] every test seen failing once with its violation injected
 
-## Phase 5 - vercel ⬜
+## Phase 5 - vercel ✅ (2026-09-16, v0.1.5)
 
 _Requested 2026-09-16: every push to `main` deploys to production, same domain every time._
 
@@ -77,10 +77,10 @@ _Requested 2026-09-16: every push to `main` deploys to production, same domain e
       created by `vercel link --yes`, GitHub repo connected. Vite preset, output `dist`, Node
       24.x, install/build auto-detected (pnpm lockfile)
 - [x] Vercel plugin installed, project scope only (`.claude/settings.json`), admin request
-- [ ] `holecity.vercel.app` is the project's production domain, auto-assigned to every new
-      production deployment. Never a `vercel alias` pinned to one deployment. First deploy
-      (v0.1.3, `200d47b`) landed on it; still to see: the stamp moves on the next push.
-      Instant Rollback does pause auto-assign (confirmed in docs, `CLAUDE.md` rule)
+- [x] `holecity.vercel.app` is the project's production domain, auto-assigned to every new
+      production deployment. Never a `vercel alias` pinned to one deployment. Verified: stamp
+      moved from `200d47b` (v0.1.3) to `9516d86` (v0.1.4) on the same domain with no manual
+      step. Instant Rollback does pause auto-assign (confirmed in docs, `CLAUDE.md` rule)
 - [x] build stamp: `<meta name="build">` from `VITE_VERCEL_GIT_COMMIT_SHA` (Vercel sets it; `.env`
       default `dev` locally). Version follows from the SHA
 - [x] verify after a push: v0.1.3 production stamp equals pushed `HEAD` (polled, first try 8 s

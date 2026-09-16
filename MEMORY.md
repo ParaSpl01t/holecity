@@ -1,8 +1,8 @@
 # MEMORY
 
-**RESUME:** Phases 1-3 done. Phase 5: live at `https://holecity.vercel.app` since v0.1.3,
-public, build stamp verified. Last Phase 5 check: stamp follows the next push on the same domain.
-Then Phase 4 tests.
+**RESUME:** Phases 1-3 and 5 done (v0.1.5). Live at `https://holecity.vercel.app`, every push
+to `main` deploys there (verified twice by build stamp). Dev server on `--host`. Next: Phase 4
+tests (plus three.js chunk split) once the admin settles the route.
 
 ## GOTCHAS
 
