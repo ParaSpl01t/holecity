@@ -1,8 +1,8 @@
 # MEMORY
 
-**RESUME:** Phases 1-3 done (v0.1.2), playable and verified headless. Phase 5 (Vercel) in
-progress: push policy decided (push = deploy), dev server moving to `--host`. Next: link Vercel
-project with Git integration, build stamp, push, verify production. Phase 4 tests after.
+**RESUME:** Phases 1-3 done. Phase 5: live at `https://holecity.vercel.app` since v0.1.3,
+public, build stamp verified. Last Phase 5 check: stamp follows the next push on the same domain.
+Then Phase 4 tests.
 
 ## GOTCHAS
 
@@ -34,8 +34,10 @@ project with Git integration, build stamp, push, verify production. Phase 4 test
 
 - **Origin** (2026-09-16): private GitHub repo `ParaSpl01t/holecity`, ssh remote, branch `main`.
   Verify with `gh repo view ParaSpl01t/holecity --json visibility`.
-- **Vercel** (2026-09-16): wiring requested (push = deploy), Phase 5 in progress. Account
-  `tushar10141-1854`, CLI 59.11.2. No `holecity` project existed before this phase.
+- **Vercel** (2026-09-16): project `tushar10141-1854s-projects/holecity`, Git-connected, push to
+  `main` = production deploy. Account `tushar10141-1854`, CLI 59.11.2. Check a deploy with
+  `vercel ls holecity`, then read `<meta name="build">` from `https://holecity.vercel.app/` and
+  compare with the pushed SHA (don't trust a 200). First build took 8 s.
 - **Vercel plugin** (2026-09-16): admin approved `vercel@claude-plugins-official`, scoped to this
   project only (not user-wide).
 - **`holecity.vercel.app`** (2026-09-16): anonymous `curl` got 404 `DEPLOYMENT_NOT_FOUND`, so

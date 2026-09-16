@@ -70,18 +70,21 @@ _Requested 2026-09-16: every push to `main` deploys to production, same domain e
 
 - [x] push policy decided (2026-09-16): a push to `main` is a production deploy, and a deploy is a
       push to `main`. No separate deploy step (`CLAUDE.md` rule)
-- [ ] production deployments public: no Vercel Authentication on the production domain
-      (2026-09-16)
+- [x] production deployments public: `holecity.vercel.app` returns the game with no login
+      (curl body + headless render, 2026-09-16). Per-deployment URLs
+      (`holecity-<hash>-...vercel.app`) redirect to Vercel SSO: default Standard Protection
 - [x] project `holecity` (`tushar10141-1854s-projects`, `prj_kiM68fZAXV92pgBwysZjGnYsUb3o`)
       created by `vercel link --yes`, GitHub repo connected. Vite preset, output `dist`, Node
       24.x, install/build auto-detected (pnpm lockfile)
 - [x] Vercel plugin installed, project scope only (`.claude/settings.json`), admin request
 - [ ] `holecity.vercel.app` is the project's production domain, auto-assigned to every new
-      production deployment. Never a `vercel alias` pinned to one deployment. Check in Vercel
-      docs whether an Instant Rollback pauses auto-assign
-- [ ] build stamp: commit SHA in a `<meta>` tag (the version follows from the SHA)
-- [ ] verify after a push: production body's stamp equals pushed `HEAD`, headless browser renders
-      it, reachable without a Vercel login
+      production deployment. Never a `vercel alias` pinned to one deployment. First deploy
+      (v0.1.3, `200d47b`) landed on it; still to see: the stamp moves on the next push.
+      Instant Rollback does pause auto-assign (confirmed in docs, `CLAUDE.md` rule)
+- [x] build stamp: `<meta name="build">` from `VITE_VERCEL_GIT_COMMIT_SHA` (Vercel sets it; `.env`
+      default `dev` locally). Version follows from the SHA
+- [x] verify after a push: v0.1.3 production stamp equals pushed `HEAD` (polled, first try 8 s
+      build), headless Chromium renders the game on production, no console errors
 
 ---
 

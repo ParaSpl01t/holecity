@@ -48,5 +48,8 @@ not restated in this file.
   `holecity.vercel.app`. Push and deploy are one action in this repo: a push deploys, a deploy is
   a push. This replaces the global push/deploy split here; pushing stays at own judgement and
   follows the global Git and Versioning rules (commit, bump, one push).
+- **Roll back with `git revert` + push, never Vercel Instant Rollback.** Per Vercel docs
+  (`/docs/instant-rollback`, read 2026-09-16), a rollback turns off auto-assignment of production
+  domains: later pushes build but never go live until `vercel promote` or Undo Rollback.
 - **Dev server always binds to the network** (2026-09-16, admin): `--host` is part of the `dev`
   script, so phones on the LAN can open it.
