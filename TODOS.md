@@ -18,7 +18,7 @@ _v0.1.x = phases 1-5, planned from `INBOX.md` `## v0.1.x` (2026-09-16)._
       cannot teleport the hole
 - [x] FPS counter: bottom-left, dark opaque bg, white text. DOM text written ~2x/s, not per frame
 
-## Phase 2 - terrain ⬜
+## Phase 2 - terrain ✅ (2026-09-16, v0.1.2)
 
 - [x] palette: main green, accent green (slightly darker), a lighter tint of each for the tile
       look, concrete, sea. Pastel and cartoonish (Voodoo, Brawl Stars). `src/world/palette.ts`
@@ -26,23 +26,29 @@ _v0.1.x = phases 1-5, planned from `INBOX.md` `## v0.1.x` (2026-09-16)._
       tile, nearest filtering, base and tint alternating per tile. Tile size 2 m
 - [x] accent patches: small, occasional (1 per 400 tiles, radius 1.2-2.8 tiles, wobbled edge),
       in place of main green. Seeded (mulberry32), so every load matches
-- [ ] borderzone: 10 m concrete path around the playzone, one ring shape (no overdraw). Built,
-      not yet seen: needs hole movement to reach an edge
-- [ ] outzone: sea as the scene background color (zero draw cost). Built, not yet seen, same
-      reason
+- [x] borderzone: 10 m concrete path around the playzone, one ring shape (no overdraw). Seen
+      headless with the hole driven into the -x -z corner
+- [x] outzone: sea as the scene background color (zero draw cost). Seen in the same corner shot
 
-## Phase 3 - player and camera ⬜
+## Phase 3 - player and camera ✅ (2026-09-16, v0.1.2)
 
-- [ ] hole: black disc 4 m wide (2 m radius), 1 m yellow ring outside it, 3 m total radius
-      (confirmed 2026-09-16)
-- [ ] camera: perspective, looking down with a slight tilt, hard-locked on the hole (no easing).
-      Visible ground width held steady between portrait and landscape
-- [ ] movement: dt-based, capped speed. Hole center clamped to playzone bounds, so every corner is
-      reachable and the hole overhangs into the borderzone there
-- [ ] input WASD, diagonals normalized
-- [ ] input mouse: hole steers toward the cursor's ground point, dead zone under the hole
-- [ ] input touch: floating virtual joystick under the thumb, offset sets direction and speed
-- [ ] input arbitration: last-used source wins. Window blur and pointer leave stop movement
+- [x] hole: black disc 4 m wide (2 m radius), 1 m yellow ring outside it, 3 m total radius
+      (confirmed 2026-09-16). One merged mesh with vertex colors, one draw call
+- [x] camera: perspective, 30 deg tilt, 60 m away, hard-locked on the hole (no easing). 40 m
+      span across the shorter screen side in portrait and landscape
+- [x] movement: dt-based, 12 m/s top speed. Hole center clamped per axis to playzone bounds, so
+      every corner is reachable, the hole overhangs into the borderzone there and slides along
+      edges
+- [x] input WASD by `event.code` (layout-independent), diagonals normalized, modifier combos
+      ignored
+- [x] input mouse: steers toward the cursor's ground point, no button. 1 m dead zone, speed ramps
+      to full over the next 4 m
+- [x] input touch: floating joystick for touch and pen, 56 px travel, 12% dead zone, first
+      finger only
+- [x] input arbitration: last-used source wins. Window blur, hidden tab and cursor leaving the
+      window stop movement
+- [x] verified headless: WASD reaches and pins at a corner, mouse steers and stops on the hole,
+      touch drag steers right and stops on release (moving/stopped by screenshot byte compare)
 
 ## Phase 4 - tests and perf ⬜
 

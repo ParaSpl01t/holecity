@@ -1,8 +1,8 @@
 # MEMORY
 
-**RESUME:** Phase 1 done (v0.1.0). Phase 2 terrain built: tiles and patches verified headless at
-1280x720 and 390x844@3x; borderzone and sea not yet seen (camera stuck at origin until Phase 3).
-Open: Phase 5 push policy. Next: Phase 3 hole + input, then check edges at a corner.
+**RESUME:** Phases 1-3 done (v0.1.2): playable route, hole steers by WASD / mouse / touch
+joystick across the tiled playzone, verified headless. Open: Phase 5 push policy. Next: admin
+looks at the dev server; once the route settles, Phase 4 tests.
 
 ## GOTCHAS
 
@@ -18,6 +18,11 @@ Open: Phase 5 push policy. Next: Phase 3 hole + input, then check edges at a cor
   (the screenshot readback, not game code). FPS there is SwiftShader's, not a real measurement.
 - **Dev server**: `pnpm dev --strictPort` on 5173, run in background, log teed to the session
   scratchpad.
+- **Headless input checks** (2026-09-16): the game exposes no state, so movement is judged from
+  pixels. Screenshots clipped above the FPS readout: bytes differ = moving, identical = stopped.
+  Keys via `page.keyboard.down('KeyW')`; mouse via `page.mouse.move`; touch needs a context with
+  `hasTouch` and CDP `Input.dispatchTouchEvent` for a real drag. W+A for 14 s reaches the -x -z
+  corner. The scripts lived in the session scratchpad; Phase 4 moves this approach into the repo.
 
 - **Origin** (2026-09-16): private GitHub repo `ParaSpl01t/holecity`, ssh remote, branch `main`.
   Verify with `gh repo view ParaSpl01t/holecity --json visibility`.
@@ -29,3 +34,10 @@ Open: Phase 5 push policy. Next: Phase 3 hole + input, then check edges at a cor
   `git ls-remote --tags origin`.
 
 ## DESIGN
+
+- **Flat unlit color** (2026-09-16): `MeshBasicMaterial` only, no lights, no shadows. The cartoon
+  look comes from the palette (`src/world/palette.ts`), and it costs no lighting math.
+- **Overlays appear only while they are in use.** No HUD: the joystick exists only while a finger
+  is down (translucent white ring, white knob). The FPS readout is the one permanent element.
+- **One draw call per thing where cheap**: merged geometry with vertex colors (hole), data
+  textures instead of per-tile meshes (playzone), clear color instead of a mesh (sea).
