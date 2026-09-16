@@ -1,6 +1,12 @@
 import type { Page } from '@playwright/test';
+import {
+	HOLE_RADIUS,
+	HOLE_RADIUS_STEP,
+	RING_WIDTH,
+} from '../src/player/dimensions';
 import { palette } from '../src/world/palette';
 import {
+	besideHole,
 	colorsAt,
 	expect,
 	expectColor,
@@ -47,6 +53,31 @@ test('a drag shows the joystick and steers the hole along it', async ({
 	const [below] = await colorsAt(page, [[cx, height - FPS_STRIP - 10]]);
 	expectColor(below!, palette.sea, 'outzone below the +z edge');
 	await finger('touchEnd');
+});
+
+test('the + button grows the hole, the - button shrinks it', async ({
+	page,
+}) => {
+	await openGame(page);
+	const grow = page.getByRole('button', { name: 'Grow hole' });
+	const shrink = page.getByRole('button', { name: 'Shrink hole' });
+	await expect(grow).toBeVisible();
+	await expect(shrink).toBeVisible();
+
+	const ringAt = (radius: number) => besideHole(page, radius + RING_WIDTH / 2);
+	await grow.tap();
+	await grow.tap();
+	await page.waitForTimeout(100);
+	const [grown] = await colorsAt(page, [
+		ringAt(HOLE_RADIUS + 2 * HOLE_RADIUS_STEP),
+	]);
+	expectColor(grown!, palette.holeRing, 'ring after two + taps');
+
+	await shrink.tap();
+	await shrink.tap();
+	await page.waitForTimeout(100);
+	const [back] = await colorsAt(page, [ringAt(HOLE_RADIUS)]);
+	expectColor(back!, palette.holeRing, 'ring after two - taps');
 });
 
 test('lifting the finger hides the joystick and stops the hole', async ({

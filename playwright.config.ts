@@ -7,6 +7,9 @@ export default defineConfig({
 	testDir: 'e2e',
 	// Software rendering is slow, and crossing half the playzone takes ~12 s.
 	timeout: 60_000,
+	// Every browser renders on the CPU. Four at once dropped to ~3 fps, where
+	// the game (time step capped at 0.1 s) moves too slowly for the waits.
+	workers: 2,
 	reporter: 'list',
 	use: {
 		baseURL: `http://localhost:${PORT}`,

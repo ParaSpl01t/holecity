@@ -1,30 +1,35 @@
 /**
- * Browser test helpers. The game exposes no state, so tests judge it from
- * pixels: colors sampled at known ground points, and motion from whether
- * consecutive frames are byte-identical.
+ * Browser test helpers. What is drawn is judged from pixels (colors sampled at
+ * known ground points); whether the hole moves, from its position, which the
+ * game exposes when opened with `?e2e`.
  */
 import { test as base, expect, type Page } from '@playwright/test';
-import { HOLE_RADIUS, RING_WIDTH } from '../src/player/hole';
+import { HOLE_RADIUS, RING_WIDTH } from '../src/player/dimensions';
 import { SHORT_SIDE_SPAN } from '../src/world/camera';
+import { palette } from '../src/world/palette';
 
 export { expect };
 
 export type Rgb = [number, number, number];
 
-/**
- * Bottom strip holding the FPS readout, in CSS px. Cropped from motion checks,
- * since its text changes on its own.
- */
+/** Bottom strip holding the FPS readout, in CSS px: keep samples above it. */
 export const FPS_STRIP = 40;
 
 /** Distance from the hole center to the middle of its ring, in m. */
 export const RING_MID = HOLE_RADIUS + RING_WIDTH / 2;
 
 /**
- * Wait between frames compared for motion, in ms. At full speed the hole
- * covers meters in it.
+ * Wait between two hole positions compared for motion, in ms. At full speed
+ * the hole covers meters in it.
  */
 const MOTION_WINDOW_MS = 400;
+
+/**
+ * Distance, in m, under which the hole counts as still over that window. A
+ * cursor exactly on the hole's row still steers by float rounding (~1e-15 m
+ * per frame), so exact equality would never hold.
+ */
+const STILL_EPSILON = 0.001;
 
 /** Every test also fails on a console error or an uncaught exception. */
 export const test = base.extend<{ consoleErrors: string[] }>({
@@ -43,12 +48,17 @@ export const test = base.extend<{ consoleErrors: string[] }>({
 });
 
 /**
- * Opens the game and waits for its loop to run: the FPS readout appears once
- * its first window is measured.
+ * Opens the game and waits until it is fully up: the loop runs (the FPS
+ * readout appears after its first measured window) and physics has loaded, so
+ * objects do not pop in during a motion check.
  */
 export async function openGame(page: Page): Promise<void> {
-	await page.goto('/');
+	// `?e2e`: the game exposes where the hole is (see `src/main.ts`).
+	await page.goto('/?e2e');
 	await expect(page.locator('.fps')).toBeVisible();
+	await expect(page.locator('#game')).toHaveAttribute('data-physics', 'ready');
+	// One frame for the new objects to be drawn.
+	await page.waitForTimeout(100);
 }
 
 /**
@@ -118,34 +128,47 @@ export function expectColor(
 	expect(matches, `${label}: got rgb(${actual}), want ${wanted}`).toBe(true);
 }
 
-/** The frame above the FPS strip. */
-async function frame(page: Page): Promise<Uint8Array> {
-	const { width, height } = view(page);
-	return page.screenshot({
-		clip: { x: 0, y: 0, width, height: height - FPS_STRIP },
-		scale: 'css',
+/**
+ * Asserts `actual` is inside the hole: its edge fades from `holeWall` at
+ * ground level to the black void, so every channel sits between them.
+ */
+export function expectShaft(actual: Rgb, label: string): void {
+	const inside = [16, 8, 0].every(
+		(shift, i) => actual[i]! <= ((palette.holeWall >> shift) & 0xff) + 4
+	);
+	expect(inside, `${label}: got rgb(${actual}), want hole darkness`).toBe(true);
+}
+
+/**
+ * Where the hole is, read from the game. Objects move on their own, so the
+ * picture cannot tell whether the hole moved.
+ */
+function holeAt(page: Page): Promise<{ x: number; z: number }> {
+	return page.evaluate(() => {
+		const game = (
+			window as unknown as { holecity?: { hole: { x: number; z: number } } }
+		).holecity;
+		if (!game) throw new Error('page not opened with ?e2e');
+		return { x: game.hole.x, z: game.hole.z };
 	});
 }
 
-function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
-	return a.length === b.length && a.every((byte, i) => byte === b[i]);
-}
-
 async function stillOverWindow(page: Page): Promise<boolean> {
-	const before = await frame(page);
+	const before = await holeAt(page);
 	await page.waitForTimeout(MOTION_WINDOW_MS);
-	return sameBytes(before, await frame(page));
+	const after = await holeAt(page);
+	return Math.hypot(after.x - before.x, after.z - before.z) < STILL_EPSILON;
 }
 
 export async function expectMoving(page: Page): Promise<void> {
-	expect(await stillOverWindow(page), 'view should be moving').toBe(false);
+	expect(await stillOverWindow(page), 'hole should be moving').toBe(false);
 }
 
 /** Still right now: no easing out, no drift. */
 export async function expectStill(page: Page): Promise<void> {
-	// One frame for the input change to reach the render.
+	// One frame for the input change to reach the game.
 	await page.waitForTimeout(100);
-	expect(await stillOverWindow(page), 'view should be still').toBe(true);
+	expect(await stillOverWindow(page), 'hole should be still').toBe(true);
 }
 
 /** Waits for the hole to come to rest, e.g. pinned against an edge. */

@@ -2,9 +2,10 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	build: {
-		// three.js alone is ~550 kB minified. The limit sits just above it, so the
-		// warning still fires if any chunk grows past three.js itself.
-		chunkSizeWarningLimit: 600,
+		// The two vendor chunks are known and cached as immutable: three.js
+		// (~550 kB) and Rapier (~2.9 MB, its WASM inlined as base64). The limit
+		// sits just above Rapier, so a surprise chunk still warns.
+		chunkSizeWarningLimit: 3000,
 		rolldownOptions: {
 			output: {
 				codeSplitting: {

@@ -4,6 +4,7 @@ import {
 	colorsAt,
 	expect,
 	expectColor,
+	expectShaft,
 	expectStill,
 	openGame,
 	RING_MID,
@@ -27,7 +28,7 @@ test('spawns the hole at the center of the tiled playzone', async ({
 		besideHole(page, RING_MID),
 		besideHole(page, 10),
 	]);
-	expectColor(center!, palette.hole, 'hole center');
+	expectShaft(center!, 'hole center');
 	expectColor(ring!, palette.holeRing, 'hole ring');
 	expectColor(grass!, GREENS, 'playzone beside the hole');
 	await expectStill(page);
@@ -83,7 +84,7 @@ test('recovers from a lost WebGL context', async ({ page }) => {
 		besideHole(page, RING_MID),
 		besideHole(page, 10),
 	]);
-	expectColor(center!, palette.hole, 'hole center after restore');
+	expectShaft(center!, 'hole center after restore');
 	expectColor(ring!, palette.holeRing, 'hole ring after restore');
 	expectColor(grass!, GREENS, 'playzone after restore');
 });

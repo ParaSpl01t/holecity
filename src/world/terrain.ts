@@ -7,17 +7,16 @@ import {
 	Mesh,
 	MeshBasicMaterial,
 	NearestFilter,
+	NotEqualStencilFunc,
 	PlaneGeometry,
 	SRGBColorSpace,
+	Vector3,
 } from 'three';
+import { HOLE_STENCIL } from '../engine/stencil';
+import { toonBrightness } from './lighting';
 import { palette } from './palette';
 import { ACCENT, generateTileKinds, TILES_PER_SIDE } from './tiles';
-import {
-	BORDER_HEIGHT,
-	BORDER_WIDTH,
-	PLAYZONE_SIZE,
-	TILE_SIZE,
-} from './zones';
+import { BORDER_HEIGHT, BORDER_WIDTH, PLAYZONE_SIZE, TILE_SIZE } from './zones';
 
 /** Borderzone width, in tiles. */
 const BORDER_TILES = BORDER_WIDTH / TILE_SIZE;
@@ -28,19 +27,12 @@ const GROUND_TILES = TILES_PER_SIDE + 2 * BORDER_TILES;
 /** Half the side of the whole ground, in m. */
 const GROUND_HALF = PLAYZONE_SIZE / 2 + BORDER_WIDTH;
 
-/**
- * Wall brightness relative to the concrete (sRGB). Flat unlit color needs a
- * shade per facing to read as 3D: walls facing along z (toward or away from
- * the camera) a little darker, walls facing along x darker still.
- */
-const WALL_SHADE_Z = 0.86;
-const WALL_SHADE_X = 0.76;
-
 /** A corner on the ground plane: world x and z, in m. */
 type Corner = readonly [x: number, z: number];
 
 /**
  * Playzone and raised borderzone, sharing one tile texture: two draw calls.
+ * Colliders live in the physics simulation.
  * The outzone (sea) is the scene background, so it costs nothing to draw.
  */
 export function createTerrain(seed: number): Group {
@@ -117,7 +109,11 @@ const PLAIN_CONCRETE_UV: [u: number, v: number] = [
 	0.5 / GROUND_TILES,
 ];
 
-/** One quad for the whole playzone at ground level. */
+/**
+ * One quad for the whole playzone at ground level. It skips the pixels the
+ * hole marks in the stencil buffer, which is what opens the hole (see
+ * `player/hole.ts`).
+ */
 function createPlayzone(texture: DataTexture): Mesh {
 	const geometry = new PlaneGeometry(PLAYZONE_SIZE, PLAYZONE_SIZE);
 	geometry.rotateX(-Math.PI / 2);
@@ -126,14 +122,22 @@ function createPlayzone(texture: DataTexture): Mesh {
 	for (let i = 0; i < position.count; i++) {
 		uv.setXY(i, ...groundUv(position.getX(i), position.getZ(i)));
 	}
-	return new Mesh(geometry, new MeshBasicMaterial({ map: texture }));
+	const material = new MeshBasicMaterial({
+		map: texture,
+		stencilWrite: true,
+		stencilRef: HOLE_STENCIL,
+		stencilFunc: NotEqualStencilFunc,
+	});
+	return new Mesh(geometry, material);
 }
 
 /**
  * Concrete path raised `BORDER_HEIGHT` above the playzone: a top ring plus
  * walls on its inner and outer edges, in one mesh. The top samples the tile
- * texture; walls sample a plain concrete texel, darkened per facing through
- * vertex colors. Nothing overlaps the playzone, so no pixel is drawn twice.
+ * texture; walls sample a plain concrete texel, shaded per facing through
+ * vertex colors with the objects' toon light. Nothing overlaps the playzone,
+ * so no pixel is drawn twice. Not stencil-tested: where the hole reaches
+ * under the path, the path covers it (admin decision).
  */
 function createBorderzone(texture: DataTexture): Mesh {
 	const positions: number[] = [];
@@ -158,8 +162,10 @@ function createBorderzone(texture: DataTexture): Mesh {
 
 	const lit = new Color(1, 1, 1);
 	const wallShade = (from: Corner, to: Corner): Color => {
-		const shade = from[1] === to[1] ? WALL_SHADE_Z : WALL_SHADE_X;
-		return new Color().setRGB(shade, shade, shade, SRGBColorSpace);
+		// A wall from `from` to `to` faces (-dz, dx); see the loops below.
+		const facing = new Vector3(-(to[1] - from[1]), 0, to[0] - from[0]);
+		const brightness = toonBrightness(facing.normalize());
+		return new Color(brightness, brightness, brightness);
 	};
 	const plainConcrete = () => PLAIN_CONCRETE_UV;
 	const top = BORDER_HEIGHT;

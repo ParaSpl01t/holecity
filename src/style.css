@@ -49,6 +49,35 @@ body {
 	background: rgb(255 255 255 / 0.9);
 }
 
+/* Temporary hole size buttons, touch screens only. */
+.size-controls {
+	position: fixed;
+	right: env(safe-area-inset-right);
+	bottom: env(safe-area-inset-bottom);
+	display: none;
+	gap: 8px;
+	padding: 8px;
+}
+
+@media (pointer: coarse) {
+	.size-controls {
+		display: flex;
+	}
+}
+
+.size-controls button {
+	width: 40px;
+	height: 40px;
+	padding: 0;
+	border: 0;
+	border-radius: 10px;
+	background: rgb(0 0 0 / 0.45);
+	color: #fff;
+	font:
+		600 22px/1 system-ui,
+		sans-serif;
+}
+
 /* No `display` here: it would override the `hidden` attribute. */
 .fps {
 	position: fixed;

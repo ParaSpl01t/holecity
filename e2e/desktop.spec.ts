@@ -1,14 +1,22 @@
+import {
+	HOLE_RADIUS,
+	HOLE_RADIUS_STEP,
+	RING_WIDTH,
+} from '../src/player/dimensions';
 import { palette } from '../src/world/palette';
 import {
 	besideHole,
 	colorsAt,
 	expectColor,
 	expectMoving,
+	expectShaft,
 	expectStill,
 	openGame,
 	test,
 	waitUntilStill,
 } from './fixtures';
+
+const PATH = [palette.concrete, palette.concreteTint];
 
 test('WASD drives the hole into the -x -z corner, where it stops', async ({
 	page,
@@ -23,7 +31,7 @@ test('WASD drives the hole into the -x -z corner, where it stops', async ({
 		besideHole(page, -7),
 		besideHole(page, -13),
 	]);
-	expectColor(path!, palette.concrete, 'borderzone left of the hole');
+	expectColor(path!, PATH, 'borderzone left of the hole');
 	expectColor(sea!, palette.sea, 'outzone past the borderzone');
 	await page.keyboard.up('KeyW');
 	await page.keyboard.up('KeyA');
@@ -41,7 +49,7 @@ test('the hole steers toward the cursor, up to the playzone edge', async ({
 		besideHole(page, 7),
 		besideHole(page, 13),
 	]);
-	expectColor(path!, palette.concrete, 'borderzone right of the hole');
+	expectColor(path!, PATH, 'borderzone right of the hole');
 	expectColor(sea!, palette.sea, 'outzone past the borderzone');
 });
 
@@ -73,6 +81,30 @@ test('losing window focus stops a held key', async ({ page }) => {
 	await page.evaluate(() => window.dispatchEvent(new Event('blur')));
 	await expectStill(page);
 	await page.keyboard.up('KeyD');
+});
+
+test('] grows the hole and [ shrinks it back', async ({ page }) => {
+	await openGame(page);
+	// Two steps up: where the ring was is now inside the opening, and the ring
+	// sits further out.
+	const grown = HOLE_RADIUS + 2 * HOLE_RADIUS_STEP;
+	await page.keyboard.press(']');
+	await page.keyboard.press(']');
+	await page.waitForTimeout(100);
+	const [oldRing, newRing] = await colorsAt(page, [
+		besideHole(page, HOLE_RADIUS + RING_WIDTH / 2),
+		besideHole(page, grown + RING_WIDTH / 2),
+	]);
+	expectShaft(oldRing!, 'old ring spot, now inside the opening');
+	expectColor(newRing!, palette.holeRing, 'ring after growing');
+
+	await page.keyboard.press('[');
+	await page.keyboard.press('[');
+	await page.waitForTimeout(100);
+	const [ring] = await colorsAt(page, [
+		besideHole(page, HOLE_RADIUS + RING_WIDTH / 2),
+	]);
+	expectColor(ring!, palette.holeRing, 'ring after shrinking back');
 });
 
 test('the last input used steers: the cursor overrides a held key', async ({

@@ -12,16 +12,22 @@ const MAX_PIXEL_RATIO = 2;
  * MSAA only below 2x DPR: dense screens already hide edge aliasing, and
  * multisampling there multiplies an already large fill cost.
  *
+ * Stencil is on for the hole opening, and local clipping keeps the hole off
+ * the outzone.
+ *
  * Context loss needs no handling here: three.js cancels the default on
  * `webglcontextlost`, skips rendering while lost, and re-uploads resources
  * lazily after `webglcontextrestored`.
  */
 export function createRenderer(canvas: HTMLCanvasElement): WebGLRenderer {
-	return new WebGLRenderer({
+	const renderer = new WebGLRenderer({
 		canvas,
 		antialias: window.devicePixelRatio < 2,
 		powerPreference: 'high-performance',
+		stencil: true,
 	});
+	renderer.localClippingEnabled = true;
+	return renderer;
 }
 
 /** Matches the drawing buffer to the canvas CSS size at the capped DPR. */

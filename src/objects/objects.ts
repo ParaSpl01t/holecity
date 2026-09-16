@@ -1,0 +1,718 @@
+import type {
+	Collider,
+	ColliderDesc,
+	RigidBody,
+	World,
+} from '@dimforge/rapier3d-compat';
+import {
+	BoxGeometry,
+	CylinderGeometry,
+	Matrix4,
+	MeshToonMaterial,
+	Quaternion,
+	SphereGeometry,
+	Vector3,
+	type Scene,
+} from 'three';
+import { FRICTION, RESTITUTION, STEP, type Rapier } from '../physics/physics';
+import { ABYSS_DEPTH, GROUND_THICKNESS } from '../player/dimensions';
+import { createToonGradient } from '../world/lighting';
+import { createInstances, type Instances, type Slot } from './instances';
+import { TRUNK_HEIGHT, TRUNK_RADIUS, type ObjectSpec } from './layout';
+
+/**
+ * Velocity damping, per s: like rolling on grass. The hole's solid edge can
+ * shove an object at full hole speed; it still comes to rest, and sleeps,
+ * within a few seconds.
+ */
+const LINEAR_DAMPING = 0.5;
+const ANGULAR_DAMPING = 2;
+
+/** Leaf density relative to everything else (1): crowns light enough to stand. */
+const LEAF_DENSITY = 0.25;
+
+/**
+ * How much narrower than the opening, in m, a leaf aims to squeeze. Covers the
+ * polygon the collar approximates the circle with.
+ */
+const FIT_MARGIN = 0.1;
+
+/** Most a leaf flattens under a knock: 0.45 leaves it 55% as thick. */
+const MAX_KNOCK = 0.45;
+
+/** Contact force, in N, that flattens a leaf fully on its own. */
+const FULL_KNOCK_FORCE = 4000;
+
+/**
+ * Contact forces below this, in N, are not reported at all. Low, so a leaf
+ * resting on the rim under part of the tree's weight still registers.
+ */
+const CONTACT_EVENT_THRESHOLD = 40;
+
+/** Knock spring, per s²: fast, like a stress ball. */
+const KNOCK_STIFFNESS = 140;
+
+/** Per-step fade of a knock once the push stops (6 per s). */
+const KNOCK_RELEASE = Math.exp(-6 * STEP);
+
+/**
+ * Most a leaf squeezes through an opening: 0.7 leaves it 30% as wide, pulled
+ * in toward the trunk by the same share.
+ */
+const MAX_SQUEEZE = 0.7;
+
+/** Squeeze amounts tried, smallest first, when looking for one that fits. */
+const SQUEEZE_SEARCH_STEP = 0.05;
+
+/** Squeeze spring, per s²: a steady give under the tree's weight. */
+const SQUEEZE_STIFFNESS = 60;
+
+/**
+ * Steps a rim contact counts as still pressing (1/6 s). Contact events skip
+ * steps while a leaf slides or bounces.
+ */
+const PRESS_MEMORY = 10;
+
+/**
+ * Depth, in m, the trunk base must sink below ground for a tree to count as
+ * being pulled through the opening. Only the opening lets it get there.
+ */
+const PULLED_DEPTH = 0.3;
+
+/**
+ * Draw of the hole on a tree it is pulling through, toward its axis: spring
+ * stiffness (per s²) and damping (per s), applied as acceleration at the trunk
+ * top. Centers and rights the tree, so its crown can squeeze through.
+ */
+const PULL_STIFFNESS = 8;
+const PULL_DAMPING = 4;
+
+/** Leaf radius or squeeze change worth updating colliders for. */
+const COLLIDER_EPSILON = 0.01;
+
+const UP = new Vector3(0, 1, 0);
+const ONE = new Vector3(1, 1, 1);
+const ORIGIN = new Vector3(0, 0, 0);
+const TRUNK_TOP = new Vector3(0, TRUNK_HEIGHT, 0);
+
+interface Transform {
+	readonly position: Vector3;
+	readonly rotation: Quaternion;
+}
+
+/** A critically damped spring: reaches its target without wobbling past it. */
+interface Spring {
+	value: number;
+	speed: number;
+	target: number;
+}
+
+const createSpring = (): Spring => ({ value: 0, speed: 0, target: 0 });
+
+/** Advances `spring` one step, then clamps its value to [0, `max`]. */
+function stepSpring(spring: Spring, stiffness: number, max: number): void {
+	const damping = 2 * Math.sqrt(stiffness);
+	const acceleration =
+		stiffness * (spring.target - spring.value) - damping * spring.speed;
+	spring.speed += acceleration * STEP;
+	spring.value = Math.min(Math.max(spring.value + spring.speed * STEP, 0), max);
+}
+
+/**
+ * A stress-ball leaf. Two independent deformations:
+ * - a knock (any hard contact) flattens it along the push, briefly;
+ * - a squeeze (pressing on the rim while the tree is pulled into an opening
+ *   too narrow for it) flattens it sideways, stretches it downward and moves
+ *   it toward the trunk. It only grows while the tree is being pulled through,
+ *   and springs back once the tree is out of the opening again.
+ */
+interface Leaf {
+	readonly collider: Collider;
+	/** Center relative to the tree base, unsqueezed, in body space. */
+	readonly offset: Vector3;
+	/** Radius at rest. */
+	readonly radius: number;
+	readonly knock: Spring;
+	/** World direction of the latest knock. */
+	readonly normal: Vector3;
+	readonly squeeze: Spring;
+	/** Step of the latest rim contact. */
+	pressedAt: number;
+	colliderRadius: number;
+	colliderSqueeze: number;
+}
+
+type Kind = 'sphere' | 'box' | 'tree';
+
+interface Part {
+	readonly instances: Instances;
+	readonly slot: Slot;
+	/** Body-space transform of the part; rebuilt per frame for leaves. */
+	readonly local: Matrix4;
+	readonly leaf?: Leaf;
+}
+
+interface Entity {
+	readonly body: RigidBody;
+	readonly kind: Kind;
+	/** Cube half extents; zero for other kinds. */
+	readonly half: Vector3;
+	/** Sphere radius; zero for other kinds. */
+	readonly radius: number;
+	readonly leaves: Leaf[];
+	readonly parts: Part[];
+	/**
+	 * Farthest any part reaches from the body's origin, in m. Once the origin is
+	 * that far below the void's backdrop, the object is out of sight and removed.
+	 */
+	readonly extent: number;
+	readonly previous: Transform;
+	readonly current: Transform;
+}
+
+export interface HoleState {
+	x: number;
+	z: number;
+	radius: number;
+}
+
+export interface Point {
+	x: number;
+	y: number;
+	z: number;
+}
+
+/**
+ * A convex piece of an object for tests: the points spanning it (world), plus
+ * a radius around them (0 for a cube, whose corners are the points).
+ */
+export interface PieceSnapshot {
+	points: Point[];
+	radius: number;
+}
+
+/** An object's state: for tests and debugging. */
+export interface BodySnapshot {
+	/** Body origin: sphere and cube centers, tree trunk bases. */
+	x: number;
+	y: number;
+	z: number;
+	/** Largest leaf squeeze, 0 for anything but a live tree. */
+	squeeze: number;
+	/** Cube; sphere; trunk axis plus one piece per leaf. */
+	pieces: PieceSnapshot[];
+}
+
+export interface Objects {
+	/** Before a physics step: keeps the last transforms for interpolation. */
+	beforeStep(): void;
+	/**
+	 * Routes a reported contact force, in N, to any leaf among two colliders.
+	 * `rim`: one of them is the ground around the opening.
+	 */
+	push(
+		collider1: number,
+		collider2: number,
+		force: number,
+		direction: { x: number; y: number; z: number },
+		rim: boolean
+	): void;
+	/** After a step: reads transforms, springs leaves, removes what is gone. */
+	afterStep(hole: HoleState): void;
+	/** Writes instance matrices, `alpha` of the way from the last step to this one. */
+	draw(alpha: number): void;
+	/** Physics bodies left: cubes count one each. */
+	count(): number;
+	snapshot(): BodySnapshot[];
+}
+
+/**
+ * Physics bodies and instanced meshes for every object. Stacks are one body
+ * per cube, so they topple; trees are one body with trunk and leaf colliders.
+ * Nothing decides that an object falls: the opening is a real gap in the
+ * ground, and gravity does the rest.
+ */
+export function createObjects(
+	rapier: Rapier,
+	world: World,
+	scene: Scene,
+	specs: ObjectSpec[]
+): Objects {
+	const material = new MeshToonMaterial({ gradientMap: createToonGradient() });
+	let cubeCount = 0;
+	let sphereCount = 0;
+	let treeCount = 0;
+	let leafCount = 0;
+	for (const spec of specs) {
+		if (spec.kind === 'stack') cubeCount += spec.cubes;
+		else if (spec.kind === 'sphere') sphereCount++;
+		else {
+			treeCount++;
+			leafCount += spec.leaves.length;
+		}
+	}
+	const cubes = createInstances(new BoxGeometry(1, 1, 1), material, cubeCount);
+	const spheres = createInstances(
+		new SphereGeometry(1, 24, 16),
+		material,
+		sphereCount
+	);
+	const trunks = createInstances(
+		new CylinderGeometry(1, 1, 1, 16),
+		material,
+		treeCount
+	);
+	const leaves = createInstances(
+		new SphereGeometry(1, 16, 12),
+		material,
+		leafCount
+	);
+	scene.add(cubes.mesh, spheres.mesh, trunks.mesh, leaves.mesh);
+
+	const entities: Entity[] = [];
+	const leafByCollider = new Map<number, Leaf>();
+	/** Physics steps taken, for how recent a rim contact is. */
+	let step = 0;
+
+	const createBody = (x: number, y: number, z: number, rotation?: Quaternion) =>
+		world.createRigidBody(
+			rapier.RigidBodyDesc.dynamic()
+				.setTranslation(x, y, z)
+				.setRotation(rotation ?? new Quaternion())
+				.setLinearDamping(LINEAR_DAMPING)
+				.setAngularDamping(ANGULAR_DAMPING)
+		);
+	const attach = (desc: ColliderDesc, body: RigidBody) =>
+		world.createCollider(
+			desc.setFriction(FRICTION).setRestitution(RESTITUTION),
+			body
+		);
+	const addEntity = (
+		entity: Omit<
+			Entity,
+			'previous' | 'current' | 'half' | 'radius' | 'leaves'
+		> &
+			Partial<Pick<Entity, 'half' | 'radius' | 'leaves'>>
+	) => {
+		const current = { position: new Vector3(), rotation: new Quaternion() };
+		readTransform(entity.body, current);
+		const previous = {
+			position: current.position.clone(),
+			rotation: current.rotation.clone(),
+		};
+		entities.push({
+			half: new Vector3(),
+			radius: 0,
+			leaves: [],
+			...entity,
+			previous,
+			current,
+		});
+	};
+
+	for (const spec of specs) {
+		if (spec.kind === 'stack') {
+			const rotation = new Quaternion().setFromAxisAngle(UP, spec.yaw);
+			const half = new Vector3(
+				spec.width,
+				spec.height,
+				spec.length
+			).multiplyScalar(0.5);
+			const local = new Matrix4().makeScale(
+				spec.width,
+				spec.height,
+				spec.length
+			);
+			for (let i = 0; i < spec.cubes; i++) {
+				const body = createBody(
+					spec.x,
+					spec.height * (i + 0.5),
+					spec.z,
+					rotation
+				);
+				attach(rapier.ColliderDesc.cuboid(half.x, half.y, half.z), body);
+				addEntity({
+					body,
+					kind: 'box',
+					half,
+					parts: [{ instances: cubes, slot: cubes.add(spec.color), local }],
+					extent: half.length(),
+				});
+			}
+		} else if (spec.kind === 'sphere') {
+			const body = createBody(spec.x, spec.radius, spec.z);
+			attach(rapier.ColliderDesc.ball(spec.radius), body);
+			const scale = spec.radius;
+			addEntity({
+				body,
+				kind: 'sphere',
+				radius: spec.radius,
+				parts: [
+					{
+						instances: spheres,
+						slot: spheres.add(spec.color),
+						local: new Matrix4().makeScale(scale, scale, scale),
+					},
+				],
+				extent: spec.radius,
+			});
+		} else {
+			// Tree bodies sit at the trunk base; crowns are laid out pre-rotated.
+			const body = createBody(spec.x, 0, spec.z);
+			attach(
+				rapier.ColliderDesc.cylinder(
+					TRUNK_HEIGHT / 2,
+					TRUNK_RADIUS
+				).setTranslation(0, TRUNK_HEIGHT / 2, 0),
+				body
+			);
+			const parts: Part[] = [
+				{
+					instances: trunks,
+					slot: trunks.add(spec.trunkColor),
+					local: new Matrix4()
+						.makeTranslation(0, TRUNK_HEIGHT / 2, 0)
+						.scale(new Vector3(TRUNK_RADIUS, TRUNK_HEIGHT, TRUNK_RADIUS)),
+				},
+			];
+			const treeLeaves: Leaf[] = [];
+			let extent = TRUNK_HEIGHT;
+			for (const leafSpec of spec.leaves) {
+				const collider = attach(
+					rapier.ColliderDesc.ball(leafSpec.radius)
+						.setTranslation(leafSpec.x, leafSpec.y, leafSpec.z)
+						.setDensity(LEAF_DENSITY)
+						.setActiveEvents(rapier.ActiveEvents.CONTACT_FORCE_EVENTS)
+						.setContactForceEventThreshold(CONTACT_EVENT_THRESHOLD),
+					body
+				);
+				const leaf: Leaf = {
+					collider,
+					offset: new Vector3(leafSpec.x, leafSpec.y, leafSpec.z),
+					radius: leafSpec.radius,
+					knock: createSpring(),
+					normal: new Vector3(0, 1, 0),
+					squeeze: createSpring(),
+					pressedAt: -Infinity,
+					colliderRadius: leafSpec.radius,
+					colliderSqueeze: 0,
+				};
+				leafByCollider.set(collider.handle, leaf);
+				treeLeaves.push(leaf);
+				parts.push({
+					instances: leaves,
+					slot: leaves.add(leafSpec.color),
+					local: new Matrix4(),
+					leaf,
+				});
+				extent = Math.max(extent, leafSpec.y + leafSpec.radius);
+			}
+			addEntity({ body, kind: 'tree', leaves: treeLeaves, parts, extent });
+		}
+	}
+
+	const remove = (index: number) => {
+		const entity = entities[index]!;
+		for (const part of entity.parts) {
+			part.instances.remove(part.slot);
+			if (part.leaf) leafByCollider.delete(part.leaf.collider.handle);
+		}
+		world.removeRigidBody(entity.body);
+		const last = entities.pop()!;
+		if (last !== entity) entities[index] = last;
+	};
+
+	// Reused every step and frame: no per-frame allocation.
+	const point = new Vector3();
+	const scratch = new Vector3();
+
+	/** World position of a body-space point. */
+	const toWorld = (local: Vector3, body: Transform, out: Vector3) =>
+		out.copy(local).applyQuaternion(body.rotation).add(body.position);
+
+	/** Horizontal distance from the hole center to a body-space point. */
+	const reach = (local: Vector3, body: Transform, hole: HoleState) => {
+		toWorld(local, body, point);
+		return Math.hypot(point.x - hole.x, point.z - hole.z);
+	};
+
+	/** A leaf's body-space center at `squeeze`: pulled toward the trunk. */
+	const leafCenter = (leaf: Leaf, squeeze: number, out: Vector3) =>
+		out.set(
+			leaf.offset.x * (1 - squeeze),
+			leaf.offset.y,
+			leaf.offset.z * (1 - squeeze)
+		);
+
+	const leafFits = (
+		leaf: Leaf,
+		squeeze: number,
+		body: Transform,
+		hole: HoleState
+	) =>
+		reach(leafCenter(leaf, squeeze, scratch), body, hole) +
+			leaf.radius * (1 - squeeze) <=
+		hole.radius - FIT_MARGIN;
+
+	/**
+	 * Squeeze a leaf needs to pass the opening as the tree lies now: none if it
+	 * already fits, else one search step past the least that fits (the spring
+	 * only approaches its target, so aiming at the fit exactly would never
+	 * quite reach it).
+	 */
+	const squeezeNeeded = (leaf: Leaf, body: Transform, hole: HoleState) => {
+		const steps = Math.round(MAX_SQUEEZE / SQUEEZE_SEARCH_STEP);
+		for (let k = 0; k <= steps; k++) {
+			const squeeze = k * SQUEEZE_SEARCH_STEP;
+			if (leafFits(leaf, squeeze, body, hole)) {
+				return k === 0
+					? 0
+					: Math.min(MAX_SQUEEZE, squeeze + SQUEEZE_SEARCH_STEP);
+			}
+		}
+		return MAX_SQUEEZE;
+	};
+
+	/**
+	 * Springs a tree's leaves and keeps their colliders matching. While the
+	 * tree is pulled through, a leaf pressing on the rim squeezes as far as it
+	 * needs, and never springs back until the tree is out of the opening again:
+	 * letting go halfway through would wedge it on the edge.
+	 */
+	const updateLeaves = (entity: Entity, hole: HoleState, pulled: boolean) => {
+		const body = entity.current;
+		for (const leaf of entity.leaves) {
+			leaf.knock.target *= KNOCK_RELEASE;
+			stepSpring(leaf.knock, KNOCK_STIFFNESS, MAX_KNOCK);
+
+			const pressed = step - leaf.pressedAt <= PRESS_MEMORY;
+			if (!pulled) leaf.squeeze.target = 0;
+			else if (pressed) {
+				leaf.squeeze.target = Math.max(
+					leaf.squeeze.target,
+					squeezeNeeded(leaf, body, hole)
+				);
+			}
+			stepSpring(leaf.squeeze, SQUEEZE_STIFFNESS, MAX_SQUEEZE);
+
+			const squeeze = leaf.squeeze.value;
+			const radius = leaf.radius * (1 - squeeze) * (1 - leaf.knock.value);
+			if (Math.abs(radius - leaf.colliderRadius) > COLLIDER_EPSILON) {
+				leaf.collider.setRadius(radius);
+				leaf.colliderRadius = radius;
+			}
+			if (Math.abs(squeeze - leaf.colliderSqueeze) > COLLIDER_EPSILON) {
+				leaf.collider.setTranslationWrtParent(
+					leafCenter(leaf, squeeze, scratch)
+				);
+				leaf.colliderSqueeze = squeeze;
+			}
+		}
+	};
+
+	const pullPoint = new Vector3();
+	const velocity = new Vector3();
+	/**
+	 * Draws a tree toward the hole's axis by its trunk top: a damped spring on
+	 * the horizontal offset, scaled by mass.
+	 */
+	const pullToAxis = (entity: Entity, hole: HoleState) => {
+		const { body, current } = entity;
+		toWorld(TRUNK_TOP, current, pullPoint);
+		body.linvel(velocity);
+		const scale = body.mass() * STEP;
+		const x =
+			(-PULL_STIFFNESS * (pullPoint.x - hole.x) - PULL_DAMPING * velocity.x) *
+			scale;
+		const z =
+			(-PULL_STIFFNESS * (pullPoint.z - hole.z) - PULL_DAMPING * velocity.z) *
+			scale;
+		body.applyImpulseAtPoint({ x, y: 0, z }, pullPoint, true);
+	};
+
+	const pushLeaf = (
+		handle: number,
+		strength: number,
+		direction: { x: number; y: number; z: number },
+		rim: boolean
+	) => {
+		const leaf = leafByCollider.get(handle);
+		if (!leaf) return;
+		if (rim) leaf.pressedAt = step;
+		if (strength <= leaf.knock.target) return;
+		leaf.knock.target = strength;
+		leaf.normal.set(direction.x, direction.y, direction.z);
+		if (leaf.normal.lengthSq() > 0) leaf.normal.normalize();
+		else leaf.normal.copy(UP);
+	};
+
+	const position = new Vector3();
+	const rotation = new Quaternion();
+	const inverse = new Quaternion();
+	const axis = new Vector3();
+	const radiusScale = new Vector3();
+	const bodyMatrix = new Matrix4();
+	const bodyToWorld = new Matrix4();
+	const worldToBody = new Matrix4();
+	const squeezeMatrix = new Matrix4();
+	const matrix = new Matrix4();
+
+	/**
+	 * Leaf body-space matrix: flattened along its knock normal and stretched
+	 * across it to keep its volume; squeezed flat sideways and stretched
+	 * downward in world space; scaled to its radius; placed at its (possibly
+	 * pulled-in) center.
+	 */
+	const writeLeafMatrix = (
+		leaf: Leaf,
+		bodyRotation: Quaternion,
+		out: Matrix4
+	) => {
+		inverse.copy(bodyRotation).invert();
+		axis.copy(leaf.normal).applyQuaternion(inverse);
+		const along = 1 - leaf.knock.value;
+		const across = 1 / Math.sqrt(along);
+		const k = along - across;
+		const { x, y, z } = axis;
+		// One matrix row per line.
+		// prettier-ignore
+		out.set(
+			across + k * x * x, k * x * y, k * x * z, 0,
+			k * y * x, across + k * y * y, k * y * z, 0,
+			k * z * x, k * z * y, across + k * z * z, 0,
+			0, 0, 0, 1
+		);
+
+		const squeeze = leaf.squeeze.value;
+		if (squeeze > 0) {
+			const wide = 1 - squeeze;
+			// Longer as it narrows, but not all the volume: a fully squeezed leaf
+			// would otherwise stand three times its height.
+			squeezeMatrix
+				.multiplyMatrices(
+					worldToBody.makeRotationFromQuaternion(inverse),
+					matrix.makeScale(wide, 1 / Math.sqrt(wide), wide)
+				)
+				.multiply(bodyToWorld.makeRotationFromQuaternion(bodyRotation));
+			out.multiply(squeezeMatrix);
+		}
+
+		out.scale(radiusScale.setScalar(leaf.radius));
+		out.setPosition(leafCenter(leaf, squeeze, scratch));
+	};
+
+	return {
+		beforeStep() {
+			for (const entity of entities) {
+				entity.previous.position.copy(entity.current.position);
+				entity.previous.rotation.copy(entity.current.rotation);
+			}
+		},
+		push(collider1, collider2, force, direction, rim) {
+			const strength = Math.min(MAX_KNOCK, force / FULL_KNOCK_FORCE);
+			pushLeaf(collider1, strength, direction, rim);
+			pushLeaf(collider2, strength, direction, rim);
+		},
+		afterStep(hole) {
+			step++;
+			for (let i = entities.length - 1; i >= 0; i--) {
+				const entity = entities[i]!;
+				if (entity.body.isSleeping()) continue;
+				readTransform(entity.body, entity.current);
+				// Past the void's backdrop, or off the edge of the world into the sea.
+				if (entity.current.position.y < -(ABYSS_DEPTH + entity.extent)) {
+					remove(i);
+					continue;
+				}
+				if (entity.kind !== 'tree') continue;
+				// Pulled through: the trunk base is in the opening, and the top is
+				// not yet below the ground.
+				const pulled =
+					entity.current.position.y < -PULLED_DEPTH &&
+					toWorld(TRUNK_TOP, entity.current, point).y > -GROUND_THICKNESS;
+				updateLeaves(entity, hole, pulled);
+				if (pulled) pullToAxis(entity, hole);
+			}
+		},
+		draw(alpha) {
+			for (const entity of entities) {
+				position.lerpVectors(
+					entity.previous.position,
+					entity.current.position,
+					alpha
+				);
+				rotation.slerpQuaternions(
+					entity.previous.rotation,
+					entity.current.rotation,
+					alpha
+				);
+				bodyMatrix.compose(position, rotation, ONE);
+				for (const part of entity.parts) {
+					if (part.leaf) writeLeafMatrix(part.leaf, rotation, part.local);
+					matrix.multiplyMatrices(bodyMatrix, part.local);
+					part.instances.setMatrix(part.slot, matrix);
+				}
+			}
+			cubes.commit();
+			spheres.commit();
+			trunks.commit();
+			leaves.commit();
+		},
+		count() {
+			return entities.length;
+		},
+		snapshot() {
+			return entities.map((entity) => {
+				const { current } = entity;
+				const world = (local: Vector3): Point => {
+					const { x, y, z } = toWorld(local, current, new Vector3());
+					return { x, y, z };
+				};
+				const pieces: PieceSnapshot[] = [];
+				if (entity.kind === 'sphere') {
+					pieces.push({ points: [world(ORIGIN)], radius: entity.radius });
+				} else if (entity.kind === 'box') {
+					const corners: Point[] = [];
+					for (const sx of [-1, 1]) {
+						for (const sy of [-1, 1]) {
+							for (const sz of [-1, 1]) {
+								const { half } = entity;
+								corners.push(
+									world(new Vector3(sx * half.x, sy * half.y, sz * half.z))
+								);
+							}
+						}
+					}
+					pieces.push({ points: corners, radius: 0 });
+				} else {
+					pieces.push({
+						points: [world(ORIGIN), world(TRUNK_TOP)],
+						radius: TRUNK_RADIUS,
+					});
+					for (const leaf of entity.leaves) {
+						pieces.push({
+							points: [
+								world(leafCenter(leaf, leaf.squeeze.value, new Vector3())),
+							],
+							radius: leaf.colliderRadius,
+						});
+					}
+				}
+				return {
+					x: current.position.x,
+					y: current.position.y,
+					z: current.position.z,
+					squeeze: Math.max(0, ...entity.leaves.map((l) => l.squeeze.value)),
+					pieces,
+				};
+			});
+		},
+	};
+}
+
+function readTransform(body: RigidBody, out: Transform): void {
+	const { x, y, z } = body.translation();
+	out.position.set(x, y, z);
+	const r = body.rotation();
+	out.rotation.set(r.x, r.y, r.z, r.w);
+}
