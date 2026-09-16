@@ -33,3 +33,7 @@ There should be no comprimising with the performance. It should be optimized to 
 - sphere object:
   - random 2-6 meter wide sphere.
 - the hole gains real cutout and object gains real gravity and physics.
+
+## v0.3.0
+
+- the sea should gain idle "bubbled white water" waves animation.
