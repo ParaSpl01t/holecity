@@ -100,54 +100,138 @@ _2026-09-16, admin: build phases 6-9 in one go with light testing on the way (ty
 visual check), then one complete test run (unit + browser, updated to the new visuals) and one
 push._
 
-## Phase 6 - raised borderzone ⬜
+## Phase 6 - raised borderzone ✅ (2026-09-16, v0.2.0)
 
-- [ ] borderzone raised 1 m: top at y = 1, inner wall facing the playzone, outer wall facing the
-      sea. Walls in a darker concrete shade, since unlit flat color needs shade to read as 3D
-- [ ] borderzone tiled like the playzone: 2 m tiles, concrete and concrete tint checker
-- [ ] hole overlapping the raised path: decided (2026-09-16, admin): the path covers the hole.
+- [x] borderzone raised 1 m: top at y = 1, inner wall facing the playzone, outer wall facing the
+      sea. Walls shaded per facing with the objects' toon light, baked into vertex colors. Seen
+      in headless screenshots at the playzone edge
+- [x] borderzone tiled like the playzone: 2 m tiles, concrete and concrete tint checker, one
+      110x110 texture shared with the playzone
+- [x] hole overlapping the raised path: decided (2026-09-16, admin): the path covers the hole.
       Depth does it, since the path top sits 1 m above the hole
 
-## Phase 7 - physics and objects ⬜
+## Phase 7 - physics and objects ✅ (2026-09-16, v0.2.0)
 
 - [x] physics library: Rapier approved (2026-09-16, admin). Proposed as Rapier
       (`@dimforge/rapier3d-compat` 0.20.0, maintained, stable stacking, kinematic bodies, contact
       events). Measured 2026-09-16: 2.86 MB raw, 1.08 MB gzip, loaded as its own lazy chunk and
       cached as immutable. Rejected: cannon-es (774 kB unpacked across all builds, far
-      smaller, but unmaintained since 2022 and weaker at stable stacks); separate-file Rapier `.wasm` (760 kB gzip, but needs two Vite plugins)
-- [ ] physics world: fixed 60 Hz step with accumulator, render interpolation, sleeping bodies.
-      Static colliders for the playzone ground and the raised borderzone
-- [ ] placement: seeded scatter over the playzone, no overlaps, clear area around the spawn.
-      Counts per type are tunable constants (assumed, not specified)
-- [ ] cube stacks: 1-3 cubes, each dimension random 2-8 m. Cubes in a stack share size and
-      placement, stacked exactly on top. Each cube is its own body, so stacks can topple (assumed)
-- [ ] spheres: random 2-6 m wide
-- [ ] dead tree: trunk 2 m wide, 8 m high
-- [ ] live tree: the same trunk plus 3-4 green leaf spheres, 2-4 m wide
-- [ ] rendering: one instanced mesh per shape (cube, sphere, trunk, leaves), per-instance pastel
-      colors (trunk brown, leaves a green distinct from the grass, cubes and spheres from a pastel
-      set: assumed), matrices synced from physics each frame
-- [ ] lighting for 3D objects: flat unlit color will not read on spheres. Pick a cheap model
-      (baked or toon-like) and align the borderzone wall shading with it
-- [ ] unit tests: placement determinism, size ranges, no overlaps
+      smaller, but unmaintained since 2022 and weaker at stable stacks); separate-file Rapier
+      `.wasm` (760 kB gzip, but needs two Vite plugins)
+- [x] physics world: fixed 60 Hz step with accumulator (max 4 steps per frame), render
+      interpolation, sleeping bodies, gravity 19.6 m/s² (twice Earth's: Earth's reads as slow
+      motion at these sizes). Static slabs for the raised borderzone. Rapier loads lazily; the
+      ground and hole work before it arrives
+- [x] placement: seeded scatter, no overlaps, 14 m clear around the spawn, 2 m off the edges.
+      Counts: 28 stacks, 22 live trees, 26 spheres, 14 dead trees (tunable, not specified)
+- [x] cube stacks: 1-3 cubes, each dimension random 2-8 m, same size and placement, one body
+      per cube so stacks topple
+- [x] spheres: random 2-6 m wide
+- [x] dead tree: trunk 2 m wide, 8 m high
+- [x] live tree: the same trunk plus 3-4 green leaf spheres, 2-4 m wide, one compound body
+- [x] rendering: one instanced mesh per shape (cube, sphere, trunk, leaves), per-instance pastel
+      colors, matrices from interpolated physics each frame. 9 draw calls per frame in total
+      (perf test)
+- [x] lighting for 3D objects: 4-band toon shading, one ambient + one directional light
+      (`src/world/lighting.ts`); borderzone walls bake the same bands
+- [x] unit tests: placement determinism, spec size and count ranges, no overlaps, spawn and
+      edge clearance (`src/objects/layout.test.ts`)
 
-## Phase 8 - real hole ⬜
+## Phase 8 - real hole ✅ (2026-09-16, v0.2.0)
 
-- [ ] visual cutout: stencil mask so no ground is drawn inside the hole, a dark shaft below, the
-      yellow ring as its rim
-- [ ] physics cutout: ground collider with a circular hole that follows the hole, shaft walls
-      below. Objects that fit fall in; bigger ones rest and tip on the rim
-- [ ] swallowed objects are removed once they drop below the shaft (assumed: no score yet)
-- [ ] the hole and its ring are never drawn over the outzone, whatever the hole size
-- [ ] temporary hole size controls (2026-09-16, admin): `[` shrinks, `]` grows (direction
-      assumed from the - / + order); on touch, small - and + buttons bottom-right. Step and
-      min/max are tunable constants. Real growth comes later
+- [x] visual cutout: stencil mask so no ground is drawn inside the hole, a dark shaft below
+      (fading `holeWall` to black), the yellow ring as its rim. Seen in headless screenshots
+- [x] physics cutout: solid ground with a round opening that follows the hole. Objects that fit
+      fall in; bigger ones rest and tip on the rim (unit tests: sphere swallowed, oversized
+      sphere held)
+- [x] BUG (admin report 2026-09-16): an object partway through when the hole moves on is left
+      half above, half below, sinking through solid ground. Trees split: the trunk dangles below
+      ground while the leaves stay up. Cause: "falling" (ignoring the ground) was decided per
+      collider, and nothing held a falling object once the hole moved. Fix: fall per object, only
+      once its whole footprint fits the opening; falling objects are held inside an invisible
+      tube that moves with the hole (above and below ground) and carries them; tree crowns
+      compress toward the trunk to fit; the ground is solid (thick), so an object dipped into
+      the opening when the rim moves back over it is pushed up, not down. Fixed as described;
+      unit tests watch every frame that nothing sits below ground outside the opening (a
+      sphere the hole drives through, a tree the hole pauses under and leaves)
+- [x] swallowed objects are removed once they drop below the shaft (assumed: no score yet).
+      Admin report 2026-09-16: they vanished the instant their top passed ground level, while
+      still visible through the opening. Fixed: removal waits until the whole object is below
+      the shaft floor (unit test: still present when fully below ground, gone later)
+- [x] the hole and its ring are never drawn over the outzone: clipping planes at the land edge.
+      Not observable today: the biggest hole (8 m + 1 m ring) reaches 9 m under a 10 m path
+- [x] temporary hole size controls (2026-09-16, admin): `[` shrinks, `]` grows (direction
+      assumed from the - / + order); on touch, small - and + buttons bottom-right. 0.5 m per
+      press, radius 1-8 m. Browser tests for both. Real growth comes later
 
-## Phase 9 - squashy leaves ⬜
+## Phase 9 - squashy leaves, abyss hole ✅ (2026-09-16, v0.2.0)
 
-- [ ] live tree leaves squash like a stress ball on collision and when pulled into a hole smaller
-      than them, then spring back
-- [ ] v0.2 milestone: browser tests updated to the new visuals, `pnpm test:e2e` green
+- [x] live tree leaves squash like a stress ball on collision (contact force events flatten a
+      leaf along the push, then it springs back) and when pulled into a hole smaller than them
+      (the whole crown compresses toward the trunk until it fits; unit test: a crown wider than
+      the opening goes through)
+- [x] BUG (admin report 2026-09-16, "idiotic tree behaviour"): leaves shrink on their own while
+      the tree falls. They must compress only while actively squeezing through a narrow opening.
+      Cause: the whole crown was compressed as soon as the trunk was over the opening, before
+      any leaf touched the rim, and always one step smaller than needed, even when the crown
+      already fit. Fix: squeeze per leaf, only while that leaf presses on the rim (a contact
+      with the hole's ground) with the trunk being pulled in; squeezed leaves flatten sideways
+      and stretch downward, and move toward the trunk; a crown that fits never squeezes.
+      Follow-up report (same day): leaves did not compress enough; the tree stuck on the rim
+      with the trunk hanging in the pit. Causes: a trunk resting off-center against the rim
+      never counted as "pulled", and the drop test demanded a perfect fit, which a leaning
+      trunk never gives. Fix: "pulled" = trunk base below ground; the hole draws a pulled tree
+      toward its center (upright, centered); a pressed leaf's squeeze only grows while the tree
+      is pulled through (no spring-back halfway); the drop test itself went away with the
+      redesign below. Verified: unit tests (4 m hole: first squeeze only after 0.5 s, when the
+      crown reaches the rim, tree swallowed; a crown that fits never squeezes) and headless
+      screenshots (full-size crown on arrival, narrow stretched leaves going through, then gone)
+- [x] BUG (admin report 2026-09-16): objects, trees with leaves most of all, can still end up
+      half above, half below ground. The hole's border must be a colliding boundary: nothing
+      passes through it, horizontally or vertically. Cause: the ground around the opening is
+      teleported with the hole (so it cannot drag resting objects), which means its rim moves
+      through anything hanging into the opening instead of pushing it. Fix: the opening's edge
+      is a thin collar moving with a real velocity (frictionless, so it pushes but never drags);
+      the teleported ground's opening sits past the collar. Guard: unit tests check every frame
+      that anything crossing the surface crosses it inside the opening (a sphere driven through,
+      a tree left early, a tree swallowed after a pause, a bar the hole sweeps back across)
+- [x] REDESIGN (admin, 2026-09-16): "the hole should be a small opening to an empty abyss,
+      endless in every direction, small from the top, no hitbox below the surface". It was a
+      cylinder: shaft walls below, a tube above, a drawn shaft with a floor. Now: thin solid
+      ground (1 m) with the collar as its edge; nothing below the surface but void; objects
+      that pass through fall freely and are removed once out of sight. No "falling" state and
+      no tube: objects always collide with the ground, and the opening itself is what lets
+      them through. Visual: a short dark band (the edge's thickness), then black void.
+      Supersedes the tube part of the first split-object fix above. Done: `hole-body.ts`
+      (ground + collar only), `hole.ts` (edge band + black backdrop), falling state and
+      collision groups removed
+- [x] BUG (admin report 2026-09-16): "the outside part of the hole border hits the objects like a
+      carrom board piece". Cause: the collar (moving with velocity) had its top flush with the
+      ground surface and reached 1 m past the opening, so objects merely resting next to the
+      hole met its top and outer corner at full hole speed. Fix: the collar sits just below the
+      surface and only its inner face (the opening's side) matters; resting objects only ever
+      touch the teleported ground, so only parts actually hanging into the opening get pushed.
+      Unit test: a sphere resting 2.5 m off the hole's path moves under 0.1 m as the hole
+      drives past (not seen failing first: failure injection is paused in this repo)
+- [x] rolling objects settle: with the solid edge, a too-big object the hole drives under gets
+      shoved at hole speed and rolled on for 20 s+ (found by the browser test at the +x edge
+      never going still; pixel diff showed one slowly drifting object). Damping raised from
+      0.2 / 0.5 to 0.5 / 2 per s (linear / angular)
+- [x] BUG (found by the browser suite, 2026-09-16): below 2 fps the FPS readout never appears.
+      It treated any frame gap over its 500 ms window as a hidden tab and restarted. Fix: only
+      gaps over 2 s count as a hidden tab
+- [x] browser suite runs 2 workers, not 4: four software-rendered browsers on one CPU dropped
+      to ~3 fps, where the game (time step capped at 0.1 s) moves too slowly for the 40 s waits
+- [x] browser tests judge hole motion by the hole's position, not by whole-screen pixels: with
+      physics, objects move on their own, so a still hole can still change the picture ("the
+      cursor overrides a held key" failed that way). The page exposes the hole position when
+      opened with `?e2e` (a reference, no per-frame cost). Color checks stay pixel-based.
+      "Still" means under 1 mm in 400 ms: a cursor exactly on the hole's row steers by float
+      rounding (~1e-15 m per frame), which failed an exact-equality check
+- [x] v0.2 milestone: browser tests updated to the new visuals, `pnpm test:e2e` green. Was 20 of
+      20 before the redesign; after it, 19 of 20 (the rolling object above), then 16 of 20 (the
+      FPS and worker items above), then 19 of 20 (the item above, twice). Green: 20 of 20, unit
+      36 of 36 (2026-09-16)
 
 ---
 
