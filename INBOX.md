@@ -18,3 +18,18 @@ There should be no comprimising with the performance. It should be optimized to 
 - the black hole should only reach everything inside the playzone including the corners, accessing the corners means the blackhole may be partially outside the playzone but that's not an issue.
 - a simple dark opaque bg with white text FPS count in the bottom left corner.
 - the vercel deploy should be automatic on git push. for vercel the domain holecity.vercel.app should be used and it must always server latest deployment and should not be "only associated with a particular versioned deployment".
+
+## v0.2.x
+
+- the borderzone should be elevated 1m giving it a 3d look as well.
+- same tiling as playzone needed on borderzone
+- the outzone should not render the hole or the border even if it comes out of the borderzone.
+- tree object
+  - dead tree: a 2 meter wide and 8 meter high trunk.
+  - live tree: same truck as dead tree, for leaves use 3-4 green sphears 2-4 meter wide. the leaves should be able to compress like a stress ball when colliding with something, or at the time of being pulled in a small hole.
+- cube object:
+  - random height, width and length ranging from 2-8 meters.
+  - random stack of 1-3 cubes layered on top of each other same size and placement for stack.
+- sphere object:
+  - random 2-6 meter wide sphere.
+- the hole gains real cutout and object gains real gravity and physics.
