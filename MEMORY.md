@@ -1,7 +1,8 @@
 # MEMORY
 
-**RESUME:** Phase 1 done (v0.1.0): renderer, loop, camera rig, FPS counter. Empty scene renders
-black. Open: Phase 5 push policy. Next: Phase 2 terrain.
+**RESUME:** Phase 1 done (v0.1.0). Phase 2 terrain built: tiles and patches verified headless at
+1280x720 and 390x844@3x; borderzone and sea not yet seen (camera stuck at origin until Phase 3).
+Open: Phase 5 push policy. Next: Phase 3 hole + input, then check edges at a corner.
 
 ## GOTCHAS
 

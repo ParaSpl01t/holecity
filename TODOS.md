@@ -20,14 +20,16 @@ _v0.1.x = phases 1-5, planned from `INBOX.md` `## v0.1.x` (2026-09-16)._
 
 ## Phase 2 - terrain ⬜
 
-- [ ] palette: main green, accent green (slightly darker), a tint of each for the tile look,
-      concrete, sea. Pastel and cartoonish (Voodoo, Brawl Stars)
-- [ ] playzone `200*200` m: one mesh, one draw call. Tile colors from a data texture, 1 texel per
-      tile, nearest filtering, base and tint alternating per tile. Tile size assumed 2 m, tuned
-      visually
-- [ ] accent patches: small, occasional, in place of main green. Seeded, so every load matches
-- [ ] borderzone: 10 m concrete path around the playzone
-- [ ] outzone: sea beyond the path, filling the rest of the view
+- [x] palette: main green, accent green (slightly darker), a lighter tint of each for the tile
+      look, concrete, sea. Pastel and cartoonish (Voodoo, Brawl Stars). `src/world/palette.ts`
+- [x] playzone `200*200` m: one mesh, one draw call. Tile colors from a data texture, 1 texel per
+      tile, nearest filtering, base and tint alternating per tile. Tile size 2 m
+- [x] accent patches: small, occasional (1 per 400 tiles, radius 1.2-2.8 tiles, wobbled edge),
+      in place of main green. Seeded (mulberry32), so every load matches
+- [ ] borderzone: 10 m concrete path around the playzone, one ring shape (no overdraw). Built,
+      not yet seen: needs hole movement to reach an edge
+- [ ] outzone: sea as the scene background color (zero draw cost). Built, not yet seen, same
+      reason
 
 ## Phase 3 - player and camera ⬜
 
