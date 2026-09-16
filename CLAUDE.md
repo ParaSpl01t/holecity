@@ -44,3 +44,9 @@ not restated in this file.
   happens per frame, the DOM is not written per frame, draw calls stay minimal.
 - **World units.** 1 unit = 1 m, y up, playzone centered on the origin. The camera sits on the +z
   side, so screen-up is world -z.
+- **Push is deploy** (2026-09-16, admin). Vercel deploys every push to `main` to production on
+  `holecity.vercel.app`. Push and deploy are one action in this repo: a push deploys, a deploy is
+  a push. This replaces the global push/deploy split here; pushing stays at own judgement and
+  follows the global Git and Versioning rules (commit, bump, one push).
+- **Dev server always binds to the network** (2026-09-16, admin): `--host` is part of the `dev`
+  script, so phones on the LAN can open it.

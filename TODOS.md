@@ -59,23 +59,27 @@ _v0.1.x = phases 1-5, planned from `INBOX.md` `## v0.1.x` (2026-09-16)._
       console errors
 - [ ] perf sanity: mobile viewport and DPR, draw calls and frame times logged to catch regressions
       (no pass/fail budget)
+- [ ] three.js in its own long-cached chunk: every push deploys, and today each deploy changes the
+      one 561 kB bundle (142 kB gzip), so returning players re-download three.js every time.
+      Needs a `vite.config.ts`
 - [ ] every test seen failing once with its violation injected
 
 ## Phase 5 - vercel ⬜
 
-_Starts only on explicit request._
+_Requested 2026-09-16: every push to `main` deploys to production, same domain every time._
 
-- [ ] push policy decided: once Git integration is on, a push to `main` is a production deploy.
-      Open: whether "need public production deployments" (2026-09-16) means pushing `main` needs
-      no per-deploy ask
+- [x] push policy decided (2026-09-16): a push to `main` is a production deploy, and a deploy is a
+      push to `main`. No separate deploy step (`CLAUDE.md` rule)
 - [ ] production deployments public: no Vercel Authentication on the production domain
       (2026-09-16)
-- [ ] project `holecity` linked to `ParaSpl01t/holecity`: production branch `main`, Vite preset,
-      `pnpm build`
+- [x] project `holecity` (`tushar10141-1854s-projects`, `prj_kiM68fZAXV92pgBwysZjGnYsUb3o`)
+      created by `vercel link --yes`, GitHub repo connected. Vite preset, output `dist`, Node
+      24.x, install/build auto-detected (pnpm lockfile)
+- [x] Vercel plugin installed, project scope only (`.claude/settings.json`), admin request
 - [ ] `holecity.vercel.app` is the project's production domain, auto-assigned to every new
       production deployment. Never a `vercel alias` pinned to one deployment. Check in Vercel
       docs whether an Instant Rollback pauses auto-assign
-- [ ] build stamp: commit SHA and version in a `<meta>` tag
+- [ ] build stamp: commit SHA in a `<meta>` tag (the version follows from the SHA)
 - [ ] verify after a push: production body's stamp equals pushed `HEAD`, headless browser renders
       it, reachable without a Vercel login
 
