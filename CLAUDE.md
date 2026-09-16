@@ -42,3 +42,5 @@ not restated in this file.
 - **Performance by best practice and common sense** (2026-09-16). No low-end device target and no
   numeric budget. Every addition is weighed for its per-frame cost: work that can happen once never
   happens per frame, the DOM is not written per frame, draw calls stay minimal.
+- **World units.** 1 unit = 1 m, y up, playzone centered on the origin. The camera sits on the +z
+  side, so screen-up is world -z.

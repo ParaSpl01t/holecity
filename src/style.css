@@ -1,0 +1,38 @@
+html,
+body {
+	margin: 0;
+	height: 100%;
+	overflow: hidden;
+}
+
+body {
+	/* The game owns every gesture: no scroll, zoom, selection or tap flash. */
+	touch-action: none;
+	overscroll-behavior: none;
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-tap-highlight-color: transparent;
+}
+
+#game {
+	position: fixed;
+	inset: 0;
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+/* No `display` here: it would override the `hidden` attribute. */
+.fps {
+	position: fixed;
+	left: env(safe-area-inset-left);
+	bottom: env(safe-area-inset-bottom);
+	padding: 4px 8px;
+	background: #111;
+	color: #fff;
+	font:
+		12px/1.2 ui-monospace,
+		monospace;
+	font-variant-numeric: tabular-nums;
+	pointer-events: none;
+}

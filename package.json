@@ -1,0 +1,23 @@
+{
+	"name": "holecity",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"check": "tsc --noEmit",
+		"format": "prettier --write ."
+	},
+	"dependencies": {
+		"three": "^0.186.0"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.63.0",
+		"@types/three": "^0.186.0",
+		"prettier": "^3.9.6",
+		"typescript": "^7.0.2",
+		"vite": "^8.3.0"
+	}
+}

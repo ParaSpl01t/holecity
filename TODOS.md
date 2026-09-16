@@ -2,20 +2,21 @@
 
 _v0.1.x = phases 1-5, planned from `INBOX.md` `## v0.1.x` (2026-09-16)._
 
-## Phase 1 - foundation ⬜
+## Phase 1 - foundation ✅ (2026-09-16, v0.1.0)
 
 - [x] stack approved (2026-09-16): Vite + TypeScript + three.js, no UI framework (no HUD or lobby
       yet). Dev: vitest, @playwright/test, prettier
-- [ ] scaffold: `package.json` created at `0.0.0` (first bump `minor` -> `v0.1.0`, then `patch`),
-      scripts `dev` / `build` / `check` / `test`, `.gitignore`
+- [x] scaffold: `package.json` created at `0.0.0` (first bump `minor` -> `v0.1.0`, then `patch`),
+      scripts `dev` / `build` / `preview` / `check` / `format` (`test` lands with vitest in
+      Phase 4), `.gitignore`, `.prettierrc` matching dmrabbit
 - [x] perf approach decided (2026-09-16): best practices and common sense. No low-end device
       target, no numeric budget
-- [ ] world units: 1 unit = 1 m, y up, playzone centered on the origin
-- [ ] renderer: DPR capped, no shadow maps, no post-processing, antialias kept only if measured
-      affordable, resize and WebGL context loss handled
-- [ ] frame loop: single `requestAnimationFrame`, dt-based updates, dt clamped so a tab switch
+- [x] world units: 1 unit = 1 m, y up, playzone centered on the origin (`CLAUDE.md` rule)
+- [x] renderer: DPR capped at 2, no shadow maps, no post-processing, MSAA only below 2x DPR,
+      resize handled, context loss left to three.js (verified in its source)
+- [x] frame loop: single `requestAnimationFrame`, dt-based updates, dt clamped so a tab switch
       cannot teleport the hole
-- [ ] FPS counter: bottom-left, dark opaque bg, white text. DOM text written ~2x/s, not per frame
+- [x] FPS counter: bottom-left, dark opaque bg, white text. DOM text written ~2x/s, not per frame
 
 ## Phase 2 - terrain ⬜
 
