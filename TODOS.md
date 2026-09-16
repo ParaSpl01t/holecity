@@ -50,19 +50,22 @@ _v0.1.x = phases 1-5, planned from `INBOX.md` `## v0.1.x` (2026-09-16)._
 - [x] verified headless: WASD reaches and pins at a corner, mouse steers and stops on the hole,
       touch drag steers right and stops on release (moving/stopped by screenshot byte compare)
 
-## Phase 4 - tests and perf ⬜
+## Phase 4 - tests and perf ✅ (2026-09-16, v0.1.6)
 
-- [ ] unit (vitest): clamp at edges and corners, direction vector per input source, patch layout
-      identical per seed
-- [ ] browser (Playwright, headless): frames drawn and non-blank, FPS counter bottom-left with its
-      styles, WASD / mouse / touch each move the view (measured on pixels, not inferred), no
-      console errors
-- [ ] perf sanity: mobile viewport and DPR, draw calls and frame times logged to catch regressions
-      (no pass/fail budget)
-- [ ] three.js in its own long-cached chunk: every push deploys, and today each deploy changes the
-      one 561 kB bundle (142 kB gzip), so returning players re-download three.js every time.
-      Needs a `vite.config.ts`
-- [ ] every test seen failing once with its violation injected
+_2026-09-16, admin: this much testing is too heavy for the draft stage and slows getting to a
+real playable draft. Scope set in `CLAUDE.md` ("Test scope while the game is a draft")._
+
+- [x] unit (vitest, `pnpm test`, 23 tests, 0.4 s): clamp at edges and corners, direction per input
+      source, patch layout per seed + fingerprint, camera span and center lock
+- [x] browser (Playwright, `pnpm test:e2e`, 18 tests, ~1 min, production build): spawn colors, FPS
+      readout, DPR cap, no scroll, context restore, WASD / mouse / touch to edges, cursor rest,
+      cursor leave, blur, last-input arbitration, finger release. No console errors
+- [x] perf sanity: frame times and draw calls per frame logged on desktop and phone (3 draws)
+- [x] three.js in its own chunk (554 kB; game code 6.5 kB) + `/assets/*` immutable in
+      `vercel.json`. Not yet pushed, so the header is not yet verified on production
+- [x] every test seen failing once: descoped by admin (2026-09-16). Done for all 23 unit tests
+      and browser round A (15 of 18 red at the intended assertion). Rounds B (context restore,
+      arbitration) and C (perf) not run
 
 ## Phase 5 - vercel ✅ (2026-09-16, v0.1.5)
 
@@ -89,9 +92,59 @@ _Requested 2026-09-16: every push to `main` deploys to production, same domain e
 
 ---
 
+_v0.2.x = phases 6-9, planned from `INBOX.md` `## v0.2.x` (2026-09-16). First bump `minor` ->
+`v0.2.0`. Tests follow the `CLAUDE.md` draft-stage scope._
+
+## Phase 6 - raised borderzone ⬜
+
+- [ ] borderzone raised 1 m: top at y = 1, inner wall facing the playzone, outer wall facing the
+      sea. Walls in a darker concrete shade, since unlit flat color needs shade to read as 3D
+- [ ] borderzone tiled like the playzone: 2 m tiles, concrete and concrete tint checker
+- [ ] hole overlapping the raised path: PENDING admin decision. Either the path covers the hole
+      (it slides under the curb), or the hole cuts through the path too
+
+## Phase 7 - physics and objects ⬜
+
+- [ ] physics library: PENDING admin approval (new dependency). Proposed Rapier
+      (`@dimforge/rapier3d-compat` 0.20.0, maintained, stable stacking, kinematic bodies, contact
+      events). Measured 2026-09-16: 2.86 MB raw, 1.08 MB gzip, loaded as its own lazy chunk and
+      cached as immutable. Rejected: cannon-es (774 kB unpacked across all builds, far
+      smaller, but unmaintained since 2022 and weaker at stable stacks); separate-file Rapier `.wasm` (760 kB gzip, but needs two Vite plugins)
+- [ ] physics world: fixed 60 Hz step with accumulator, render interpolation, sleeping bodies.
+      Static colliders for the playzone ground and the raised borderzone
+- [ ] placement: seeded scatter over the playzone, no overlaps, clear area around the spawn.
+      Counts per type are tunable constants (assumed, not specified)
+- [ ] cube stacks: 1-3 cubes, each dimension random 2-8 m. Cubes in a stack share size and
+      placement, stacked exactly on top. Each cube is its own body, so stacks can topple (assumed)
+- [ ] spheres: random 2-6 m wide
+- [ ] dead tree: trunk 2 m wide, 8 m high
+- [ ] live tree: the same trunk plus 3-4 green leaf spheres, 2-4 m wide
+- [ ] rendering: one instanced mesh per shape (cube, sphere, trunk, leaves), per-instance pastel
+      colors (trunk brown, leaves a green distinct from the grass, cubes and spheres from a pastel
+      set: assumed), matrices synced from physics each frame
+- [ ] unit tests: placement determinism, size ranges, no overlaps
+
+## Phase 8 - real hole ⬜
+
+- [ ] visual cutout: stencil mask so no ground is drawn inside the hole, a dark shaft below, the
+      yellow ring as its rim
+- [ ] physics cutout: ground collider with a circular hole that follows the hole, shaft walls
+      below. Objects that fit fall in; bigger ones rest and tip on the rim
+- [ ] swallowed objects are removed once they drop below the shaft (assumed: no score yet)
+- [ ] the hole and its ring are never drawn over the outzone, whatever the hole size
+- [ ] hole size vs objects: PENDING admin decision. A fixed 4 m hole never swallows spheres over
+      4 m wide or most cubes. Growth now, or later
+
+## Phase 9 - squashy leaves ⬜
+
+- [ ] live tree leaves squash like a stress ball on collision and when pulled into a hole smaller
+      than them, then spring back
+- [ ] v0.2 milestone: browser tests updated to the new visuals, `pnpm test:e2e` green
+
+---
+
 ## deferred
 
-- **hole as ground cutout** - v0.1 hole is a disc drawn on the ground. Consumed objects need a real
-  cutout (stencil) to fall through. Blocked on objects, which start after v0.1
+- **hole as ground cutout** - moved into Phase 8 (2026-09-16), now that v0.2 brings objects
 - **environment definition** - generalize zones, palette and terrain into a per-environment
   definition once a second environment is specced, not before

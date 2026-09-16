@@ -1,8 +1,9 @@
 # MEMORY
 
-**RESUME:** Phases 1-3 and 5 done (v0.1.5). Live at `https://holecity.vercel.app`, every push
-to `main` deploys there (verified twice by build stamp). Dev server on `--host`. Next: Phase 4
-tests (plus three.js chunk split) once the admin settles the route.
+**RESUME:** v0.1 complete (Phases 1-5), live at `https://holecity.vercel.app`. Test scope set
+(`CLAUDE.md`). v0.2 planned as Phases 6-9 in `TODOS.md`. Blocked on three admin decisions marked
+PENDING there: physics library (Rapier proposed), hole vs raised path, hole growth. Next: Phase 6
+raised borderzone (tiling and walls do not depend on the pending decisions).
 
 ## GOTCHAS
 

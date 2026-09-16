@@ -53,3 +53,8 @@ not restated in this file.
   domains: later pushes build but never go live until `vercel promote` or Undo Rollback.
 - **Dev server always binds to the network** (2026-09-16, admin): `--host` is part of the `dev`
   script, so phones on the LAN can open it.
+- **Test scope while the game is a draft** (2026-09-16, admin). `pnpm test` (unit, under a second)
+  runs before every push. `pnpm test:e2e` (browser, ~1 min) runs at milestones only; a browser
+  test broken by a deliberate visual change is rewritten or deleted then. Failure injection (the
+  global "prove a test can fail" rule) is paused in this repo until the game settles. Heavy
+  testing must not slow getting to a playable draft.
