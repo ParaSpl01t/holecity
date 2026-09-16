@@ -6,13 +6,13 @@ import type { InputSource } from './controls';
  * Cursor distance from the hole center, in m, under which the hole stays put,
  * so it rests under a still cursor instead of jittering around it.
  */
-const DEAD_ZONE = 1;
+export const DEAD_ZONE = 1;
 
 /**
  * Distance past the dead zone, in m, over which speed ramps up to full. The
  * hole eases to a stop as it reaches the cursor.
  */
-const RAMP = 4;
+export const RAMP = 4;
 
 /** Ground offset from hole to cursor, to a direction scaled by distance. */
 export function offsetToDirection(

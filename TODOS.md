@@ -72,7 +72,8 @@ _Requested 2026-09-16: every push to `main` deploys to production, same domain e
       push to `main`. No separate deploy step (`CLAUDE.md` rule)
 - [x] production deployments public: `holecity.vercel.app` returns the game with no login
       (curl body + headless render, 2026-09-16). Per-deployment URLs
-      (`holecity-<hash>-...vercel.app`) redirect to Vercel SSO: default Standard Protection
+      (`holecity-<hash>-...vercel.app`) redirect to Vercel SSO: default Standard Protection, kept
+      as is by admin decision (2026-09-16: only the production domain is public)
 - [x] project `holecity` (`tushar10141-1854s-projects`, `prj_kiM68fZAXV92pgBwysZjGnYsUb3o`)
       created by `vercel link --yes`, GitHub repo connected. Vite preset, output `dist`, Node
       24.x, install/build auto-detected (pnpm lockfile)

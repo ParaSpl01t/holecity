@@ -16,7 +16,7 @@ const DISTANCE = 60;
  * View span across the shorter screen side at the followed point, in m. Fixing
  * the short side keeps the zoom the same in portrait and landscape.
  */
-const SHORT_SIDE_SPAN = 40;
+export const SHORT_SIDE_SPAN = 40;
 
 export interface CameraRig {
 	readonly camera: PerspectiveCamera;

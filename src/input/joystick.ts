@@ -2,13 +2,13 @@ import type { GroundVector } from '../player/movement';
 import type { InputSource } from './controls';
 
 /** Stick travel, in CSS px: the offset at which speed is full. */
-const RADIUS = 56;
+export const RADIUS = 56;
 
 /**
  * Fraction of the travel ignored around the touch point, so a resting thumb
  * does not creep.
  */
-const DEAD_ZONE = 0.12;
+export const DEAD_ZONE = 0.12;
 
 /**
  * Stick offset in CSS px (screen right +x, screen down +y) to a ground
