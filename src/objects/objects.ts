@@ -6,19 +6,25 @@ import type {
 } from '@dimforge/rapier3d-compat';
 import {
 	BoxGeometry,
-	CylinderGeometry,
 	Matrix4,
 	MeshToonMaterial,
 	Quaternion,
 	SphereGeometry,
 	Vector3,
+	type BufferGeometry,
 	type Scene,
 } from 'three';
 import { FRICTION, RESTITUTION, STEP, type Rapier } from '../physics/physics';
 import { ABYSS_DEPTH, GROUND_THICKNESS } from '../player/dimensions';
 import { createToonGradient } from '../world/lighting';
-import { createInstances, type Instances, type Slot } from './instances';
-import { TRUNK_HEIGHT, TRUNK_RADIUS, type ObjectSpec } from './layout';
+import {
+	createBatch,
+	createInstances,
+	type Drawer,
+	type Slot,
+} from './instances';
+import type { ObjectSpec, TreeSpec } from './layout';
+import { createTrunkGeometry, trunkPieces, trunkTop } from './trunk';
 
 /**
  * Velocity damping, per s: like rolling on grass. The hole's solid edge can
@@ -57,7 +63,7 @@ const KNOCK_RELEASE = Math.exp(-6 * STEP);
 
 /**
  * Most a leaf squeezes through an opening: 0.7 leaves it 30% as wide, pulled
- * in toward the trunk by the same share.
+ * in toward the crown's axis by the same share.
  */
 const MAX_SQUEEZE = 0.7;
 
@@ -93,7 +99,6 @@ const COLLIDER_EPSILON = 0.01;
 const UP = new Vector3(0, 1, 0);
 const ONE = new Vector3(1, 1, 1);
 const ORIGIN = new Vector3(0, 0, 0);
-const TRUNK_TOP = new Vector3(0, TRUNK_HEIGHT, 0);
 
 interface Transform {
 	readonly position: Vector3;
@@ -123,13 +128,15 @@ function stepSpring(spring: Spring, stiffness: number, max: number): void {
  * - a knock (any hard contact) flattens it along the push, briefly;
  * - a squeeze (pressing on the rim while the tree is pulled into an opening
  *   too narrow for it) flattens it sideways, stretches it downward and moves
- *   it toward the trunk. It only grows while the tree is being pulled through,
- *   and springs back once the tree is out of the opening again.
+ *   it toward the crown's axis. It only grows while the tree is being pulled
+ *   through, and springs back once the tree is out of the opening again.
  */
 interface Leaf {
 	readonly collider: Collider;
 	/** Center relative to the tree base, unsqueezed, in body space. */
 	readonly offset: Vector3;
+	/** The crown's axis: the trunk top's x and z, in body space. */
+	readonly axis: { readonly x: number; readonly z: number };
 	/** Radius at rest. */
 	readonly radius: number;
 	readonly knock: Spring;
@@ -145,7 +152,7 @@ interface Leaf {
 type Kind = 'sphere' | 'box' | 'tree';
 
 interface Part {
-	readonly instances: Instances;
+	readonly instances: Drawer;
 	readonly slot: Slot;
 	/** Body-space transform of the part; rebuilt per frame for leaves. */
 	readonly local: Matrix4;
@@ -159,6 +166,10 @@ interface Entity {
 	readonly half: Vector3;
 	/** Sphere radius; zero for other kinds. */
 	readonly radius: number;
+	/** Tree trunk top center, body space; zero for other kinds. */
+	readonly trunkTop: Vector3;
+	/** Tree trunk convex pieces as body-space points; none for other kinds. */
+	readonly trunkPieces: readonly Vector3[][];
 	readonly leaves: Leaf[];
 	readonly parts: Part[];
 	/**
@@ -199,7 +210,7 @@ export interface BodySnapshot {
 	z: number;
 	/** Largest leaf squeeze, 0 for anything but a live tree. */
 	squeeze: number;
-	/** Cube; sphere; trunk axis plus one piece per leaf. */
+	/** Cube; sphere; trunk segments plus one piece per leaf. */
 	pieces: PieceSnapshot[];
 }
 
@@ -238,17 +249,26 @@ export function createObjects(
 	scene: Scene,
 	specs: ObjectSpec[]
 ): Objects {
-	const material = new MeshToonMaterial({ gradientMap: createToonGradient() });
+	const gradientMap = createToonGradient();
+	const material = new MeshToonMaterial({ gradientMap });
+	// Trunks carry a vertex color for their lighter cut face.
+	const trunkMaterial = new MeshToonMaterial({
+		gradientMap,
+		vertexColors: true,
+	});
 	let cubeCount = 0;
 	let sphereCount = 0;
-	let treeCount = 0;
 	let leafCount = 0;
+	const trunkGeometries = new Map<TreeSpec, BufferGeometry>();
+	let trunkVertices = 0;
 	for (const spec of specs) {
 		if (spec.kind === 'stack') cubeCount += spec.cubes;
 		else if (spec.kind === 'sphere') sphereCount++;
 		else {
-			treeCount++;
 			leafCount += spec.leaves.length;
+			const geometry = createTrunkGeometry(spec.trunk);
+			trunkGeometries.set(spec, geometry);
+			trunkVertices += geometry.getAttribute('position').count;
 		}
 	}
 	const cubes = createInstances(new BoxGeometry(1, 1, 1), material, cubeCount);
@@ -257,10 +277,11 @@ export function createObjects(
 		material,
 		sphereCount
 	);
-	const trunks = createInstances(
-		new CylinderGeometry(1, 1, 1, 16),
-		material,
-		treeCount
+	// Every trunk is its own shape: one batch, still one draw call.
+	const trunks = createBatch(
+		trunkMaterial,
+		trunkGeometries.size,
+		trunkVertices
 	);
 	const leaves = createInstances(
 		new SphereGeometry(1, 16, 12),
@@ -290,9 +311,17 @@ export function createObjects(
 	const addEntity = (
 		entity: Omit<
 			Entity,
-			'previous' | 'current' | 'half' | 'radius' | 'leaves'
+			| 'previous'
+			| 'current'
+			| 'half'
+			| 'radius'
+			| 'trunkTop'
+			| 'trunkPieces'
+			| 'leaves'
 		> &
-			Partial<Pick<Entity, 'half' | 'radius' | 'leaves'>>
+			Partial<
+				Pick<Entity, 'half' | 'radius' | 'trunkTop' | 'trunkPieces' | 'leaves'>
+			>
 	) => {
 		const current = { position: new Vector3(), rotation: new Quaternion() };
 		readTransform(entity.body, current);
@@ -303,6 +332,8 @@ export function createObjects(
 		entities.push({
 			half: new Vector3(),
 			radius: 0,
+			trunkTop: new Vector3(),
+			trunkPieces: [],
 			leaves: [],
 			...entity,
 			previous,
@@ -358,25 +389,27 @@ export function createObjects(
 			});
 		} else {
 			// Tree bodies sit at the trunk base; crowns are laid out pre-rotated.
+			// The trunk collides as the hulls of its straight segments, the same
+			// shape that is drawn.
 			const body = createBody(spec.x, 0, spec.z);
-			attach(
-				rapier.ColliderDesc.cylinder(
-					TRUNK_HEIGHT / 2,
-					TRUNK_RADIUS
-				).setTranslation(0, TRUNK_HEIGHT / 2, 0),
-				body
-			);
+			const pieces = trunkPieces(spec.trunk);
+			for (const piece of pieces) {
+				const hull = rapier.ColliderDesc.convexHull(
+					new Float32Array(piece.flatMap(({ x, y, z }) => [x, y, z]))
+				);
+				if (!hull) throw new Error('trunk hull could not be built');
+				attach(hull, body);
+			}
+			const top = trunkTop(spec.trunk);
 			const parts: Part[] = [
 				{
 					instances: trunks,
-					slot: trunks.add(spec.trunkColor),
-					local: new Matrix4()
-						.makeTranslation(0, TRUNK_HEIGHT / 2, 0)
-						.scale(new Vector3(TRUNK_RADIUS, TRUNK_HEIGHT, TRUNK_RADIUS)),
+					slot: trunks.add(trunkGeometries.get(spec)!, spec.trunkColor),
+					local: new Matrix4(),
 				},
 			];
 			const treeLeaves: Leaf[] = [];
-			let extent = TRUNK_HEIGHT;
+			let extent = Math.max(...pieces.flat().map((point) => point.length()));
 			for (const leafSpec of spec.leaves) {
 				const collider = attach(
 					rapier.ColliderDesc.ball(leafSpec.radius)
@@ -389,6 +422,7 @@ export function createObjects(
 				const leaf: Leaf = {
 					collider,
 					offset: new Vector3(leafSpec.x, leafSpec.y, leafSpec.z),
+					axis: { x: top.x, z: top.z },
 					radius: leafSpec.radius,
 					knock: createSpring(),
 					normal: new Vector3(0, 1, 0),
@@ -405,9 +439,20 @@ export function createObjects(
 					local: new Matrix4(),
 					leaf,
 				});
-				extent = Math.max(extent, leafSpec.y + leafSpec.radius);
+				extent = Math.max(
+					extent,
+					Math.hypot(leafSpec.x, leafSpec.y, leafSpec.z) + leafSpec.radius
+				);
 			}
-			addEntity({ body, kind: 'tree', leaves: treeLeaves, parts, extent });
+			addEntity({
+				body,
+				kind: 'tree',
+				trunkTop: top,
+				trunkPieces: pieces,
+				leaves: treeLeaves,
+				parts,
+				extent,
+			});
 		}
 	}
 
@@ -436,12 +481,12 @@ export function createObjects(
 		return Math.hypot(point.x - hole.x, point.z - hole.z);
 	};
 
-	/** A leaf's body-space center at `squeeze`: pulled toward the trunk. */
+	/** A leaf's body-space center at `squeeze`: pulled toward the crown's axis. */
 	const leafCenter = (leaf: Leaf, squeeze: number, out: Vector3) =>
 		out.set(
-			leaf.offset.x * (1 - squeeze),
+			leaf.axis.x + (leaf.offset.x - leaf.axis.x) * (1 - squeeze),
 			leaf.offset.y,
-			leaf.offset.z * (1 - squeeze)
+			leaf.axis.z + (leaf.offset.z - leaf.axis.z) * (1 - squeeze)
 		);
 
 	const leafFits = (
@@ -518,7 +563,7 @@ export function createObjects(
 	 */
 	const pullToAxis = (entity: Entity, hole: HoleState) => {
 		const { body, current } = entity;
-		toWorld(TRUNK_TOP, current, pullPoint);
+		toWorld(entity.trunkTop, current, pullPoint);
 		body.linvel(velocity);
 		const scale = body.mass() * STEP;
 		const x =
@@ -629,7 +674,7 @@ export function createObjects(
 				// not yet below the ground.
 				const pulled =
 					entity.current.position.y < -PULLED_DEPTH &&
-					toWorld(TRUNK_TOP, entity.current, point).y > -GROUND_THICKNESS;
+					toWorld(entity.trunkTop, entity.current, point).y > -GROUND_THICKNESS;
 				updateLeaves(entity, hole, pulled);
 				if (pulled) pullToAxis(entity, hole);
 			}
@@ -685,10 +730,9 @@ export function createObjects(
 					}
 					pieces.push({ points: corners, radius: 0 });
 				} else {
-					pieces.push({
-						points: [world(ORIGIN), world(TRUNK_TOP)],
-						radius: TRUNK_RADIUS,
-					});
+					for (const piece of entity.trunkPieces) {
+						pieces.push({ points: piece.map(world), radius: 0 });
+					}
 					for (const leaf of entity.leaves) {
 						pieces.push({
 							points: [

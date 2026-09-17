@@ -1,12 +1,15 @@
 import { createRandom } from '../engine/random';
 import { palette } from '../world/palette';
 import { PLAYZONE_SIZE } from '../world/zones';
+import {
+	generateTrunk,
+	TRUNK_HALF_WIDTH,
+	trunkReach,
+	trunkTop,
+	type TrunkSpec,
+} from './trunk';
 
 type Range = readonly [min: number, max: number];
-
-/** Tree trunk, shared by dead and live trees, in m (2 m wide, 8 m high). */
-export const TRUNK_RADIUS = 1;
-export const TRUNK_HEIGHT = 8;
 
 /** Size ranges from the spec, in m: min inclusive, max exclusive. */
 export const CUBE_SIZE: Range = [2, 8];
@@ -65,12 +68,19 @@ export interface LeafSpec {
 	color: number;
 }
 
-/** A trunk with a crown of leaves, or none: a dead tree. */
+/** A trunk with a crown of leaves on its top, or none: a dead tree. */
 export interface TreeSpec extends Placement {
 	kind: 'tree';
+	trunk: TrunkSpec;
 	trunkColor: number;
 	leaves: LeafSpec[];
 }
+
+/**
+ * Seed offset of the trunk shapes' own random sequence: drawing them from the
+ * layout's sequence would move every object placed after the first tree.
+ */
+const TRUNK_SEED_SALT = 0x5bd1e995;
 
 export type ObjectSpec = StackSpec | SphereSpec | TreeSpec;
 
@@ -80,6 +90,7 @@ export type ObjectSpec = StackSpec | SphereSpec | TreeSpec;
  */
 export function generateLayout(seed: number): ObjectSpec[] {
 	const random = createRandom(seed);
+	const trunkRandom = createRandom(seed ^ TRUNK_SEED_SALT);
 	const within = ([min, max]: Range) => min + random() * (max - min);
 	const whole = ([min, max]: Range) =>
 		min + Math.floor(random() * (max - min + 1));
@@ -104,28 +115,23 @@ export function generateLayout(seed: number): ObjectSpec[] {
 		return undefined;
 	};
 
-	/** One leaf capping the trunk, the rest ringed just below it. */
-	const growCrown = (): LeafSpec[] => {
+	/** One leaf capping the trunk's top, the rest ringed just below it. */
+	const growCrown = (trunk: TrunkSpec): LeafSpec[] => {
+		const { x, y, z } = trunkTop(trunk);
 		const count = whole(TREE_LEAVES);
 		const turn = random() * Math.PI * 2;
-		const top = within(LEAF_RADIUS);
+		const cap = within(LEAF_RADIUS);
 		const leaves = [
-			{
-				x: 0,
-				y: TRUNK_HEIGHT + top * 0.4,
-				z: 0,
-				radius: top,
-				color: pick(palette.leaves),
-			},
+			{ x, y: y + cap * 0.4, z, radius: cap, color: pick(palette.leaves) },
 		];
 		for (let i = 1; i < count; i++) {
 			const radius = within(LEAF_RADIUS);
 			const angle = turn + ((i - 1) / (count - 1)) * Math.PI * 2;
-			const reach = TRUNK_RADIUS + radius * 0.5;
+			const reach = TRUNK_HALF_WIDTH + radius * 0.5;
 			leaves.push({
-				x: Math.cos(angle) * reach,
-				y: TRUNK_HEIGHT - radius * 0.2,
-				z: Math.sin(angle) * reach,
+				x: x + Math.cos(angle) * reach,
+				y: y - radius * 0.2,
+				z: z + Math.sin(angle) * reach,
 				radius,
 				color: pick(palette.leaves),
 			});
@@ -158,9 +164,10 @@ export function generateLayout(seed: number): ObjectSpec[] {
 	}
 
 	for (let i = 0; i < COUNTS.liveTree; i++) {
-		const leaves = growCrown();
+		const trunk = generateTrunk(trunkRandom);
+		const leaves = growCrown(trunk);
 		const footprint = Math.max(
-			TRUNK_RADIUS,
+			trunkReach(trunk),
 			...leaves.map((leaf) => Math.hypot(leaf.x, leaf.z) + leaf.radius)
 		);
 		const spot = findSpot(footprint);
@@ -169,6 +176,7 @@ export function generateLayout(seed: number): ObjectSpec[] {
 				kind: 'tree',
 				...spot,
 				footprint,
+				trunk,
 				trunkColor: palette.trunk,
 				leaves,
 			});
@@ -185,12 +193,15 @@ export function generateLayout(seed: number): ObjectSpec[] {
 	}
 
 	for (let i = 0; i < COUNTS.deadTree; i++) {
-		const spot = findSpot(TRUNK_RADIUS);
+		const trunk = generateTrunk(trunkRandom);
+		const footprint = trunkReach(trunk);
+		const spot = findSpot(footprint);
 		if (spot) {
 			specs.push({
 				kind: 'tree',
 				...spot,
-				footprint: TRUNK_RADIUS,
+				footprint,
+				trunk,
 				trunkColor: palette.deadTrunk,
 				leaves: [],
 			});

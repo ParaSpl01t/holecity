@@ -314,7 +314,7 @@ the path covers the hole (admin, v0.2)._
 - [ ] only if toppling from near the edge is the main cause: objects spawn farther from the edge
       (margin grows with the object's height; `EDGE_MARGIN` is 2 m, stacks stand up to 24 m)
 
-## Phase 13 - tree trunks ⬜
+## Phase 13 - tree trunks ✅ (2026-09-17, v0.3.2)
 
 _Inbox: not a plain cylinder; slight twist and bends, an almost square base, "a lightly bent in
 a few places long cuboid". References `reference/trees/` (viewed 2026-09-17): `image.png`,
@@ -324,17 +324,28 @@ rim (one with a spiral growth ring, one with a side branch stub). `image copy 3.
 of low-poly trees: faceted trunks twisted and bent, root flares, some forking into branches,
 faceted green crowns._
 
-- [ ] cross-section: a square with chamfered corners (4 broad faces, 4 narrow bevels), "almost
-      square" and 8-sided like the references. 2 m across, 8 m tall, as today
-- [ ] shape per tree, seeded: 3-4 segments, each bent slightly off the last and twisted a few
-      degrees; slight root flare at the base (from the references, not the inbox text).
-      Flat-shaded facets under the existing toon light. Live and dead trees share the trunk
-- [ ] every trunk unique, still one draw call: a three.js `BatchedMesh` (many geometries, one
-      draw call) replaces the trunk `InstancedMesh`
-- [ ] collider from the same generator: one cuboid per bent segment in the tree's compound body.
-      The crown sits on the bent top; `TRUNK_TOP` in `src/objects/objects.ts` becomes per tree
-- [ ] unit tests: generator bounds (width, height, lean); live and dead trees still swallowed
-      through the default 4 m hole; squeeze and below-ground watch tests still green
+- [x] cross-section: a square with 0.3 m chamfered corners (4 broad faces, 4 narrow bevels),
+      "almost square" and 8-sided like the references. 2 m across, 8 m tall, as before
+- [x] shape per tree, seeded (`src/objects/trunk.ts`): root flare over the lowest 0.8 m (each
+      corner spread 1.2-1.5x, so the base looks rooted), then bends at ~3 m, ~5.5 m and the top,
+      each stepping the axis 0.2-0.4 m (never over 0.6 m from the base), a 15-35 deg twist and
+      a taper to 0.85 at the top. Flat-shaded facets under the existing toon light; the cut
+      face on top is lighter wood (vertex color, references). Live and dead trees share it.
+      Trunks draw from their own random sequence, so the layout's sequence is untouched (object
+      positions still moved: footprints now come from the real shapes)
+- [x] every trunk unique, still one draw call: `createBatch` (`src/objects/instances.ts`, three's
+      `BatchedMesh`, multi-draw) replaces the trunk `InstancedMesh`. Draw calls per frame stay
+      10; the perf test now counts multi-draws (it wraps the extension object from
+      `getExtension`: `WEBGL_multi_draw` is not a global, a first attempt counted nothing)
+- [x] collider from the same generator: the convex hull of each straight segment (more exact
+      than the planned cuboids, same cost). The crown sits on the bent top, and the tree's own
+      top replaced the fixed `TRUNK_TOP` for the pull and "pulled" checks; squeezed leaves move
+      toward the crown's axis, not the base's
+- [x] unit tests: generator (same seed same trunk, full height, lean bound, fits the 4 m opening
+      over 300 seeds, one piece per segment, every face outward); the physics tests' tree now has
+      a generated trunk; new: a dead tree is swallowed through the 4 m hole. 45 of 45. Seen in
+      a headless screenshot beside the nearest live tree: faceted, flared, bent, cut face on a
+      dead tree, no console errors
 
 ## Phase 14 - powerup drops ⬜ (needs admin decision)
 

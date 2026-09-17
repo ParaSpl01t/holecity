@@ -21,27 +21,48 @@ test('perf sanity: frame times and draw calls per frame', async ({
 	page,
 }, testInfo) => {
 	// Counts WebGL draws without touching game code: the draw methods are
-	// wrapped before the game creates its context.
+	// wrapped before the game creates its context. A multi-draw (batched
+	// trunks) is one draw call.
 	await page.addInitScript(() => {
 		const counter = { draws: 0 };
 		Object.assign(window, { __draws: counter });
-		const proto = WebGL2RenderingContext.prototype as unknown as Record<
-			string,
-			(...args: unknown[]) => unknown
-		>;
-		for (const name of [
+		type Methods = Record<string, (...args: unknown[]) => unknown>;
+		const wrap = (target: Methods, names: string[]) => {
+			for (const name of names) {
+				const original = target[name];
+				if (!original) continue;
+				target[name] = function (this: unknown, ...args: unknown[]) {
+					counter.draws++;
+					return original.apply(this, args);
+				};
+			}
+		};
+		const proto = WebGL2RenderingContext.prototype as unknown as Methods;
+		wrap(proto, [
 			'drawArrays',
 			'drawElements',
 			'drawArraysInstanced',
 			'drawElementsInstanced',
-		]) {
-			const original = proto[name];
-			if (!original) continue;
-			proto[name] = function (this: unknown, ...args: unknown[]) {
-				counter.draws++;
-				return original.apply(this, args);
-			};
-		}
+		]);
+		// The multi-draw extension is not a global: wrap the object the game
+		// gets back, once.
+		const getExtension = proto.getExtension!;
+		const wrapped = new WeakSet<object>();
+		proto.getExtension = function (this: unknown, ...args: unknown[]) {
+			const extension = getExtension.apply(this, args) as Methods | null;
+			if (args[0] === 'WEBGL_multi_draw' && extension) {
+				if (!wrapped.has(extension)) {
+					wrapped.add(extension);
+					wrap(extension, [
+						'multiDrawArraysWEBGL',
+						'multiDrawElementsWEBGL',
+						'multiDrawArraysInstancedWEBGL',
+						'multiDrawElementsInstancedWEBGL',
+					]);
+				}
+			}
+			return extension;
+		};
 	});
 	await openGame(page);
 

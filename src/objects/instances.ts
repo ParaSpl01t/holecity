@@ -1,4 +1,5 @@
 import {
+	BatchedMesh,
 	Color,
 	InstancedMesh,
 	Matrix4,
@@ -6,23 +7,34 @@ import {
 	type Material,
 } from 'three';
 
-/** A drawn instance. Its index changes when an earlier instance is removed. */
+/** A drawn instance. Its index may change when another instance is removed. */
 export interface Slot {
 	index: number;
 }
 
-export interface Instances {
-	readonly mesh: InstancedMesh;
-	add(color: number): Slot;
+/** Many objects drawn in one draw call, each placed through its slot. */
+export interface Drawer {
 	remove(slot: Slot): void;
 	setMatrix(slot: Slot, matrix: Matrix4): void;
 	/** Uploads the matrices written this frame. */
 	commit(): void;
 }
 
+/** Objects sharing one geometry. */
+export interface Instances extends Drawer {
+	readonly mesh: InstancedMesh;
+	add(color: number): Slot;
+}
+
+/** Objects with a geometry each. */
+export interface Batch extends Drawer {
+	readonly mesh: BatchedMesh;
+	add(geometry: BufferGeometry, color: number): Slot;
+}
+
 /**
  * Every object of one shape in one draw call. Removal is O(1): the last
- * instance moves into the freed slot.
+ * instance moves into the freed slot, whose index it takes.
  */
 export function createInstances(
 	geometry: BufferGeometry,
@@ -71,5 +83,48 @@ export function createInstances(
 		commit() {
 			mesh.instanceMatrix.needsUpdate = true;
 		},
+	};
+}
+
+/**
+ * Objects that each have their own geometry, still in one draw call (three's
+ * `BatchedMesh`, multi-draw). Sized once: `vertices` is the total of every
+ * geometry that will be added. Slots never change index. Removal scans the
+ * batch's instances, fine at tens of objects.
+ */
+export function createBatch(
+	material: Material,
+	capacity: number,
+	vertices: number
+): Batch {
+	const mesh = new BatchedMesh(
+		Math.max(capacity, 1),
+		Math.max(vertices, 1),
+		undefined,
+		material
+	);
+	// As with instances, one bounding volume for moving objects spread over
+	// the playzone culls nothing; each object is still culled on its own.
+	mesh.frustumCulled = false;
+	// Opaque: the depth test already resolves overlap, sorting buys nothing.
+	mesh.sortObjects = false;
+	const color = new Color();
+
+	return {
+		mesh,
+		add(geometry, hex) {
+			const index = mesh.addInstance(mesh.addGeometry(geometry));
+			mesh.setColorAt(index, color.set(hex));
+			return { index };
+		},
+		remove(slot) {
+			// Deleting the geometry deletes its one instance too.
+			mesh.deleteGeometry(mesh.getGeometryIdAt(slot.index));
+		},
+		setMatrix(slot, value) {
+			mesh.setMatrixAt(slot.index, value);
+		},
+		// `setMatrixAt` flags its own upload.
+		commit() {},
 	};
 }

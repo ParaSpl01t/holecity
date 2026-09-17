@@ -1,8 +1,10 @@
 import { Scene } from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { createRandom } from '../engine/random';
 import { debugEnvironment } from '../environments/debug/debug';
 import type { ObjectSpec } from '../objects/layout';
 import type { PieceSnapshot, Point } from '../objects/objects';
+import { generateTrunk, trunkReach, trunkTop } from '../objects/trunk';
 import { GROUND_THICKNESS, HOLE_RADIUS } from '../player/dimensions';
 import type { GroundVector } from '../player/movement';
 import { loadRapier, STEP, type Rapier } from './physics';
@@ -40,23 +42,38 @@ const box = (
 	color: 0xffffff,
 });
 
-/** A live tree whose crown reaches ~3.7 m from the trunk axis. */
+/** A bent, twisted trunk, the same every run. */
+const trunk = generateTrunk(createRandom(3));
+const top = trunkTop(trunk);
+
+/** A live tree whose crown reaches ~3.7 m from its axis, on the trunk's top. */
 const liveTree = (x: number): ObjectSpec => ({
 	kind: 'tree',
 	x,
 	z: 0,
 	footprint: 3.7,
+	trunk,
 	trunkColor: 0xffffff,
 	leaves: [
-		{ x: 0, y: 8.7, z: 0, radius: 1.8, color: 0xffffff },
+		{ x: top.x, y: top.y + 0.7, z: top.z, radius: 1.8, color: 0xffffff },
 		...[0, 1, 2].map((i) => ({
-			x: Math.cos((i * 2 * Math.PI) / 3) * 1.9,
-			y: 7.6,
-			z: Math.sin((i * 2 * Math.PI) / 3) * 1.9,
+			x: top.x + Math.cos((i * 2 * Math.PI) / 3) * 1.9,
+			y: top.y - 0.4,
+			z: top.z + Math.sin((i * 2 * Math.PI) / 3) * 1.9,
 			radius: 1.8,
 			color: 0xffffff,
 		})),
 	],
+});
+
+const deadTree = (x: number): ObjectSpec => ({
+	kind: 'tree',
+	x,
+	z: 0,
+	footprint: trunkReach(trunk),
+	trunk,
+	trunkColor: 0xffffff,
+	leaves: [],
 });
 
 const simulate = (specs: ObjectSpec[], holeRadius: number) =>
@@ -187,6 +204,12 @@ describe('hole physics', () => {
 		// Its crown is ~6 m up: it drops that far before any leaf meets the rim.
 		expect(squeezedAt).toBeGreaterThan(0.5);
 		expect(squeezedAt).toBeLessThan(Infinity);
+		expect(simulation.remaining).toBe(0);
+	});
+
+	it('swallows a dead tree standing over the 4 m opening', () => {
+		const simulation = simulate([deadTree(20)], HOLE_RADIUS);
+		runWatched(simulation, 6, HOLE_RADIUS, at(20));
 		expect(simulation.remaining).toBe(0);
 	});
 

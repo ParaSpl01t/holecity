@@ -4,8 +4,8 @@
 standard, sea waves, stranded objects, tree trunks, powerup drops, see-through objects, moon
 environment with terrain relief, lobby). Admin said "start" 2026-09-17. Phase 10 done (v0.3.0):
 environments defined in `src/environments/`, debug environment built through it, sea is a mesh
-at -1 m. Phase 11 done (v0.3.1): foam shader on the sea. Next: Phase 13 (trunks), needs no
-answers. Waiting on admin
+at -1 m. Phase 11 done (v0.3.1): foam shader on the sea. Phase 13 done (v0.3.2): seeded bent
+trunks, one batch. Every phase left needs admin answers. Waiting on admin
 answers for 12, 14, 15, 16: stranded objects (pop vs nudge back), magnet effect and drop rules,
 see-through targets (hole, halos, both), moon objects and look, plus the assumed debug
 elevations (path 1 m, sea -1 m). Last verified live: v0.3.1, 2026-09-17: `ls-remote` main and
