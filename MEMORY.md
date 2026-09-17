@@ -7,7 +7,9 @@ environments defined in `src/environments/`, debug environment built through it,
 at -1 m. Next: Phase 11 (sea waves), then 13 (trunks); neither needs answers. Waiting on admin
 answers for 12, 14, 15, 16: stranded objects (pop vs nudge back), magnet effect and drop rules,
 see-through targets (hole, halos, both), moon objects and look, plus the assumed debug
-elevations (path 1 m, sea -1 m). Last verified live: v0.2.0 (stamp `a565707`, 2026-09-16).
+elevations (path 1 m, sea -1 m). Last verified live: v0.3.0, 2026-09-17: `ls-remote` main and
+tag `v0.3.0^{}` = `e158788`; production build stamp `e158788` on the first poll; headless drive
+to the +x +z corner on production, physics ready, no console errors, same picture as dev.
 
 ## GOTCHAS
 
