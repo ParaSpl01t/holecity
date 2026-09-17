@@ -404,7 +404,7 @@ consumed._
       drop on the way and took it unseen (script path, not the game); also rendered the module
       alone in its own canvas
 
-## Phase 15 - see-through objects ⬜
+## Phase 15 - see-through objects ✅ (2026-09-17, v0.3.5)
 
 _Inbox: an object hiding more than 50% of the halo turns see-through, with side effects to
 expect; admin asks the outcome for two objects hiding 49% each. The item names the halo, its
@@ -412,20 +412,33 @@ question names the hole._
 
 - [x] decision (admin, 2026-09-17): targets are both the hole (opening plus ring) and every
       powerup halo
-- [ ] rule, answering 49% + 49%: judge how much of the target is hidden in total, not per object.
+- [x] rule, answering 49% + 49%: judge how much of the target is hidden in total, not per object.
       Over 50% hidden: every object hiding any part of it fades. 49% + 49% = 98% hidden, so both
       fade; two slivers adding up to 20% fade nothing
-- [ ] measure without GPU readback: ~30 points spread evenly over the target's area, a ray from
-      the camera to each through the physics world, all hits (an object behind another still
-      counts). Hidden share = blocked rays / rays
-- [ ] side effects: hysteresis (fade over 50%, solid again under ~35%) so an object at the line
-      never flickers; fades take ~0.2 s; objects falling into the hole never count (being
-      swallowed, not hiding it); a tree fades whole, trunk and leaves together
-- [ ] rendering: a faded object's instances move to a transparent twin per shape (swap-remove,
-      O(1)) with per-instance opacity; an empty twin draws nothing, so no extra draw calls unless
+- [x] measure without GPU readback (`src/objects/see-through.ts`): 32 points in a sunflower
+      spiral over the target (flat on the ground for the hole plus ring, facing the camera for a
+      halo), a physics ray from the camera to each, all hits, dynamic bodies only. Once per
+      frame after the camera moves (`Simulation.seeThrough`, `src/main.ts`)
+- [x] side effects: hysteresis (hidden over 50%, seen again only under 35%, `isHidden`); fades
+      take 0.2 s to alpha 0.35; objects whose origin is over the opening never count (being
+      swallowed); a tree fades whole, trunk and leaves together; a consumed halo is no target
+- [x] rendering (design refined 2026-09-17): three's `BatchedMesh` carries per-instance RGBA
+      colors (its batching color multiplies alpha), `InstancedMesh` only RGB. So every object
+      kind moves into one opaque batch (cube, sphere and leaf geometries once each, every trunk
+      its own; all indexed, same attributes), plus one transparent twin batch holding the same
+      geometries. A fading object's parts move to the twin and their alpha eases to ~0.35 over
+      ~0.2 s; back at full alpha they move back. Object draw calls 4 -> 1, plus 1 only while
       something is faded
-- [ ] unit tests: hidden share for set layouts (one object at 60%: fades; two at 49%: both fade;
-      one at 30%: none), hysteresis
+- [x] done as designed: `src/objects/instances.ts` is now one `Batch` type (`batchable` brings
+      box, sphere and trunk geometries to one format: indexed, color attribute, no uv); a part
+      moves between the solid and faded batch keeping its pose. Draw calls per frame 10 -> 7
+      (perf test, desktop and phone)
+- [x] unit tests: a low camera and tall slabs: one slab hiding the whole hole fades; two slabs
+      hiding just under half each do not fade alone, both fade together; a slab over the
+      opening never counts, the same slab just outside it fades; a slab hiding a halo fades;
+      hysteresis thresholds. 67 of 67. Full browser suite 20 of 20 after the rendering change.
+      Seen headless: the hole parked behind the tallest stack near spawn shows through the
+      translucent stack, no console errors
 
 ## Phase 16 - moon environment, terrain relief ⬜ (needs admin decision)
 
@@ -468,6 +481,12 @@ moon environment. Supersedes v0.1.x "no HUD or lobby, directly spawn in a game".
       load while the lobby shows, so a launch starts at once
 - [ ] back to the lobby: none for now (assumed); a reload shows the lobby again
 - [ ] browser tests enter through the lobby (fixture presses the debug button); `?e2e` stays
+
+## Phase 18 - admin tweaks during v0.3 ⬜
+
+- [ ] increase gravity (admin, 2026-09-17: "increase gravity", no amount given). Today 19.6
+      m/s² (2 g). Tied to it: the magnet pull must stay above grass friction (0.8 g), and fall and
+      swallow timings in the physics tests
 
 ---
 

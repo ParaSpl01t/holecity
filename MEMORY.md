@@ -8,8 +8,8 @@ at -1 m. Phase 11 done (v0.3.1): foam shader on the sea. Phase 13 done (v0.3.2):
 trunks, one batch. Admin answered 2026-09-17 (recorded in the `TODOS.md` v0.3 header): pop,
 magnet as proposed, see-through for both, moon greyscale with a very slight blue tint, debug
 elevations confirmed. Still open: moon objects. Phase 12 done (v0.3.3): stranded objects pop,
-off-land objects sink. Phase 14 done (v0.3.4): magnet drops. Next: Phase 15 (see-through), then
-16, 17. Last verified live: v0.3.4, 2026-09-17: `ls-remote` main and
+off-land objects sink. Phase 14 done (v0.3.4): magnet drops. Phase 15 done: see-through objects, all
+objects in one batch. In progress: Phase 18, gravity increase (admin, mid-Phase 15). Then 16, 17. Last verified live: v0.3.4, 2026-09-17: `ls-remote` main and
 tag `v0.3.4^{}` = `64e8580`; production build stamp `64e8580` on the first poll; headless on
 production: drop appeared, hole driven beside it (halo and magnet drawn), taken, no console
 errors. Browser suite not run as a whole in v0.3 yet (desktop, touch and perf
@@ -140,7 +140,9 @@ specs green separately); due at the v0.3 milestone.
 - **One draw call per thing where cheap**: merged geometry with vertex colors (hole), data
   textures instead of per-tile meshes (playzone). The sea was the clear color until v0.3.0; it
   is now one flat ring mesh (a surface with a level, for waves), with the clear color beyond.
-  10 draw calls per frame on the debug environment (2026-09-17).
+  Every object (cubes, spheres, leaves, trunks) is in one `BatchedMesh`, plus a transparent twin
+  for see-through objects that draws only while one fades. 7 draw calls per frame on the debug
+  environment (perf test, 2026-09-17, v0.3.5).
 - **Animated surfaces are shaders, not geometry** (v0.3.1, sea foam): shapes from distance
   functions and cell hashes, one time uniform set in `onBeforeRender` (no cost off screen).
   Every shape's coverage fades with its size below one pixel, or shapes shrinking to nothing

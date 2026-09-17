@@ -1,5 +1,5 @@
 import type { World } from '@dimforge/rapier3d-compat';
-import type { Scene } from 'three';
+import type { Scene, Vector3 } from 'three';
 import type { Environment } from '../environments/environment';
 import type { ObjectSpec } from '../objects/layout';
 import {
@@ -7,6 +7,7 @@ import {
 	type BodySnapshot,
 	type HoleState,
 } from '../objects/objects';
+import type { SightTarget } from '../objects/see-through';
 import type { GroundVector } from '../player/movement';
 import { BORDER_WIDTH, PLAYZONE_SIZE } from '../world/zones';
 import { createHoleBody } from './hole-body';
@@ -25,6 +26,15 @@ export interface Simulation {
 	isClear(x: number, z: number, radius: number): boolean;
 	/** White puffs bursting out of a point; `size` in m. */
 	burst(x: number, y: number, z: number, size: number): void;
+	/**
+	 * Fades objects hiding a target more than half from `camera`, over `dt` s.
+	 * Once per frame, after the camera moved.
+	 */
+	seeThrough(
+		dt: number,
+		camera: Vector3,
+		targets: readonly SightTarget[]
+	): void;
 	/** Objects not yet swallowed. */
 	readonly remaining: number;
 	/** State of the objects left: for tests and debugging. */
@@ -108,6 +118,8 @@ export function createSimulation(
 			return clear;
 		},
 		burst: (x, y, z, size) => objects.burst(x, y, z, size),
+		seeThrough: (dt, camera, targets) =>
+			objects.seeThrough(dt, camera, targets),
 		get remaining() {
 			return objects.count();
 		},

@@ -1,9 +1,14 @@
-import { Scene } from 'three';
+import { Scene, Vector3 } from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createRandom } from '../engine/random';
 import { debugEnvironment } from '../environments/debug/debug';
 import type { ObjectSpec } from '../objects/layout';
-import type { PieceSnapshot, Point } from '../objects/objects';
+import {
+	FADED_ALPHA as FADED,
+	type PieceSnapshot,
+	type Point,
+} from '../objects/objects';
+import type { SightTarget } from '../objects/see-through';
 import { generateTrunk, trunkReach, trunkTop } from '../objects/trunk';
 import { GROUND_THICKNESS, HOLE_RADIUS } from '../player/dimensions';
 import type { GroundVector } from '../player/movement';
@@ -29,11 +34,12 @@ const box = (
 	x: number,
 	width: number,
 	height: number,
-	length: number
+	length: number,
+	z = 0
 ): ObjectSpec => ({
 	kind: 'stack',
 	x,
-	z: 0,
+	z,
 	footprint: Math.hypot(width, length) / 2,
 	yaw: 0,
 	width,
@@ -319,6 +325,54 @@ describe('magnet', () => {
 		const simulation = simulate([sphere(3 * HOLE_RADIUS + 2, 1)], HOLE_RADIUS);
 		simulation.setMagnet(true);
 		expect(drift(simulation, 3)).toBeLessThan(0.1);
+	});
+});
+
+describe('see-through objects', () => {
+	// A low camera 40 m back, looking at the hole and its ring (a 3 m disc) at
+	// the origin: rays cross z = 20 between 3.5 and 6 m up, and within 2 m of
+	// x = 0. Tall thin slabs there hide chosen parts of it.
+	const camera = new Vector3(0, 10, 40);
+	const holeSight = (): SightTarget => ({
+		x: 0,
+		y: 0,
+		z: 0,
+		radius: HOLE_RADIUS + 1,
+		flat: true,
+	});
+	const slab = (x: number, width: number, z = 20) => box(x, width, 8, 1, z);
+	/** Fades after settling, then one see-through pass long enough to finish. */
+	const fades = (specs: ObjectSpec[], target: SightTarget, holeX = 0) => {
+		const simulation = simulate(specs, HOLE_RADIUS);
+		run(simulation, 0.2, at(holeX));
+		simulation.seeThrough(1, camera, [target]);
+		return simulation.snapshot().map((body) => body.fade);
+	};
+
+	it('fades an object hiding the whole hole', () => {
+		expect(fades([slab(0, 5)], holeSight())).toEqual([FADED]);
+	});
+
+	it('fades neither of two objects hiding just under half each on their own', () => {
+		expect(fades([slab(1.35, 2.5)], holeSight())).toEqual([1]);
+		expect(fades([slab(-1.35, 2.5)], holeSight())).toEqual([1]);
+	});
+
+	it('fades both when together they hide more than half (49% + 49%)', () => {
+		expect(fades([slab(1.35, 2.5), slab(-1.35, 2.5)], holeSight())).toEqual([
+			FADED,
+			FADED,
+		]);
+	});
+
+	it('never counts an object over the opening: it is being swallowed', () => {
+		expect(fades([slab(0, 5, 1.5)], holeSight())).toEqual([1]);
+		expect(fades([slab(0, 5, 2.5)], holeSight())).toEqual([FADED]);
+	});
+
+	it('fades an object hiding a halo', () => {
+		const halo = { x: 0, y: 2, z: 0, radius: 1.6, flat: false };
+		expect(fades([slab(0, 5)], halo, -50)).toEqual([FADED]);
 	});
 });
 

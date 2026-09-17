@@ -5,6 +5,7 @@ import { debugEnvironment } from './environments/debug/debug';
 import { createControls } from './input/controls';
 import { createHoleSizeControls } from './input/hole-size';
 import { generateLayout } from './objects/layout';
+import type { SightTarget } from './objects/see-through';
 import { loadRapier } from './physics/physics';
 import { createSimulation, type Simulation } from './physics/simulation';
 import {
@@ -12,6 +13,7 @@ import {
 	HOLE_RADIUS_STEP,
 	MAX_HOLE_RADIUS,
 	MIN_HOLE_RADIUS,
+	RING_WIDTH,
 } from './player/dimensions';
 import { createHoleView } from './player/hole';
 import { moveHole, type GroundVector } from './player/movement';
@@ -49,8 +51,6 @@ const holePosition: GroundVector = { x: 0, z: 0 };
 const direction: GroundVector = { x: 0, z: 0 };
 const controls = createControls(canvas, rig.camera, holePosition);
 
-// Physics arrives as its own chunk. The ground and the hole work meanwhile,
-// and the objects appear once it is ready.
 let simulation: Simulation | undefined;
 let powerups: Powerups | undefined;
 
@@ -68,6 +68,9 @@ if (new URLSearchParams(location.search).has('e2e')) {
 		},
 	});
 }
+
+// Physics arrives as its own chunk. The ground and the hole work meanwhile,
+// and the objects appear once it is ready.
 void loadRapier().then((rapier) => {
 	const layout = generateLayout(environment.seed);
 	simulation = createSimulation(rapier, scene, environment, layout, holeRadius);
@@ -85,12 +88,33 @@ createHoleSizeControls((step) => {
 	simulation?.setHoleRadius(holeRadius);
 });
 
+// What objects in front of turn see-through: the hole with its ring, and a
+// waiting powerup's halo. Reused every frame.
+const holeSight: SightTarget = {
+	x: 0,
+	y: 0,
+	z: 0,
+	radius: holeRadius + RING_WIDTH,
+	flat: true,
+};
+const sightTargets: SightTarget[] = [];
+
 startLoop((dt, now) => {
 	moveHole(holePosition, controls.read(direction), dt);
 	simulation?.update(dt, holePosition);
 	powerups?.update(dt, holePosition, holeRadius);
 	hole.moveTo(holePosition.x, holePosition.z);
 	rig.follow(holePosition.x, holePosition.z);
+	if (simulation) {
+		holeSight.x = holePosition.x;
+		holeSight.z = holePosition.z;
+		holeSight.radius = holeRadius + RING_WIDTH;
+		sightTargets.length = 0;
+		sightTargets.push(holeSight);
+		const halo = powerups?.halo;
+		if (halo) sightTargets.push(halo);
+		simulation.seeThrough(dt, rig.camera.position, sightTargets);
+	}
 	renderer.render(scene, rig.camera);
 	fps(now);
 });

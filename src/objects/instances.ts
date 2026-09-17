@@ -1,130 +1,111 @@
 import {
 	BatchedMesh,
+	BufferAttribute,
 	Color,
-	InstancedMesh,
-	Matrix4,
+	Vector4,
 	type BufferGeometry,
 	type Material,
+	type Matrix4,
 } from 'three';
 
-/** A drawn instance. Its index may change when another instance is removed. */
+/** A drawn instance: its id in the batch holding it. Ids never change. */
 export interface Slot {
-	index: number;
+	readonly index: number;
 }
 
-/** Many objects drawn in one draw call, each placed through its slot. */
-export interface Drawer {
+export interface Batch {
+	readonly mesh: BatchedMesh;
+	/**
+	 * Registers a shape (`batchable`). The same shapes registered in the same
+	 * order get the same ids in every batch.
+	 */
+	addGeometry(geometry: BufferGeometry): number;
+	add(geometryId: number, color: number, alpha: number): Slot;
 	remove(slot: Slot): void;
 	setMatrix(slot: Slot, matrix: Matrix4): void;
-	/** Uploads the matrices written this frame. */
-	commit(): void;
+	getMatrix(slot: Slot, out: Matrix4): Matrix4;
+	setColor(slot: Slot, color: number, alpha: number): void;
 }
 
-/** Objects sharing one geometry. */
-export interface Instances extends Drawer {
-	readonly mesh: InstancedMesh;
-	add(color: number): Slot;
-}
-
-/** Objects with a geometry each. */
-export interface Batch extends Drawer {
-	readonly mesh: BatchedMesh;
-	add(geometry: BufferGeometry, color: number): Slot;
+/** What a batch has room for: instances, and all its shapes' vertices and indices. */
+export interface BatchSize {
+	instances: number;
+	vertices: number;
+	indices: number;
 }
 
 /**
- * Every object of one shape in one draw call. Removal is O(1): the last
- * instance moves into the freed slot, whose index it takes.
- */
-export function createInstances(
-	geometry: BufferGeometry,
-	material: Material,
-	capacity: number
-): Instances {
-	const mesh = new InstancedMesh(geometry, material, Math.max(capacity, 1));
-	mesh.count = 0;
-	// Instances spread over the whole playzone and move, so one bounding volume
-	// for the mesh would never cull anything.
-	mesh.frustumCulled = false;
-	const slots: Slot[] = [];
-	const color = new Color();
-	const matrix = new Matrix4();
-
-	const colorsChanged = () => {
-		if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-	};
-
-	return {
-		mesh,
-		add(hex) {
-			const slot = { index: slots.length };
-			slots.push(slot);
-			mesh.setColorAt(slot.index, color.set(hex));
-			mesh.count = slots.length;
-			colorsChanged();
-			return slot;
-		},
-		remove(slot) {
-			const last = slots.pop();
-			if (last && last !== slot) {
-				mesh.getColorAt(last.index, color);
-				mesh.setColorAt(slot.index, color);
-				mesh.getMatrixAt(last.index, matrix);
-				mesh.setMatrixAt(slot.index, matrix);
-				last.index = slot.index;
-				slots[slot.index] = last;
-			}
-			mesh.count = slots.length;
-			colorsChanged();
-		},
-		setMatrix(slot, value) {
-			mesh.setMatrixAt(slot.index, value);
-		},
-		commit() {
-			mesh.instanceMatrix.needsUpdate = true;
-		},
-	};
-}
-
-/**
- * Objects that each have their own geometry, still in one draw call (three's
- * `BatchedMesh`, multi-draw). Sized once: `vertices` is the total of every
- * geometry that will be added. Slots never change index. Removal scans the
- * batch's instances, fine at tens of objects.
+ * Objects of any shapes in one draw call (three's `BatchedMesh`, multi-draw),
+ * each colored with its own alpha. Sized once. Removal frees the id for the
+ * next instance; objects spread over the playzone and move, so the batch as a
+ * whole is never culled, but each object is.
  */
 export function createBatch(
 	material: Material,
-	capacity: number,
-	vertices: number
+	size: BatchSize,
+	sortObjects: boolean
 ): Batch {
 	const mesh = new BatchedMesh(
-		Math.max(capacity, 1),
-		Math.max(vertices, 1),
-		undefined,
+		Math.max(size.instances, 1),
+		Math.max(size.vertices, 1),
+		Math.max(size.indices, 1),
 		material
 	);
-	// As with instances, one bounding volume for moving objects spread over
-	// the playzone culls nothing; each object is still culled on its own.
 	mesh.frustumCulled = false;
-	// Opaque: the depth test already resolves overlap, sorting buys nothing.
-	mesh.sortObjects = false;
+	mesh.sortObjects = sortObjects;
 	const color = new Color();
+	const rgba = new Vector4();
+	const setColor = (index: number, hex: number, alpha: number) => {
+		color.set(hex);
+		mesh.setColorAt(index, rgba.set(color.r, color.g, color.b, alpha));
+	};
 
 	return {
 		mesh,
-		add(geometry, hex) {
-			const index = mesh.addInstance(mesh.addGeometry(geometry));
-			mesh.setColorAt(index, color.set(hex));
+		addGeometry: (geometry) => mesh.addGeometry(geometry),
+		add(geometryId, hex, alpha) {
+			const index = mesh.addInstance(geometryId);
+			setColor(index, hex, alpha);
 			return { index };
 		},
 		remove(slot) {
-			// Deleting the geometry deletes its one instance too.
-			mesh.deleteGeometry(mesh.getGeometryIdAt(slot.index));
+			mesh.deleteInstance(slot.index);
 		},
-		setMatrix(slot, value) {
-			mesh.setMatrixAt(slot.index, value);
+		setMatrix(slot, matrix) {
+			// Flags its own upload.
+			mesh.setMatrixAt(slot.index, matrix);
 		},
-		// `setMatrixAt` flags its own upload.
-		commit() {},
+		getMatrix: (slot, out) => mesh.getMatrixAt(slot.index, out),
+		setColor: (slot, hex, alpha) => setColor(slot.index, hex, alpha),
+	};
+}
+
+/**
+ * Brings a geometry to the one format every shape in a batch shares: indexed,
+ * with position, normal and color (white where it has none), no uv.
+ */
+export function batchable(geometry: BufferGeometry): BufferGeometry {
+	const count = geometry.getAttribute('position').count;
+	geometry.deleteAttribute('uv');
+	if (!geometry.getAttribute('color')) {
+		geometry.setAttribute(
+			'color',
+			new BufferAttribute(new Float32Array(count * 3).fill(1), 3)
+		);
+	}
+	if (!geometry.getIndex()) {
+		geometry.setIndex(Array.from({ length: count }, (_, i) => i));
+	}
+	return geometry;
+}
+
+/** Vertex and index counts of a batchable geometry. */
+export function sizeOf(geometry: BufferGeometry): {
+	vertices: number;
+	indices: number;
+} {
+	return {
+		vertices: geometry.getAttribute('position').count,
+		indices: geometry.getIndex()!.count,
 	};
 }

@@ -20,13 +20,15 @@ import { ABYSS_DEPTH, GROUND_THICKNESS } from '../player/dimensions';
 import { createToonGradient } from '../world/lighting';
 import { LAND_HALF, PLAYZONE_SIZE } from '../world/zones';
 import {
+	batchable,
 	createBatch,
-	createInstances,
-	type Drawer,
+	sizeOf,
+	type Batch,
 	type Slot,
 } from './instances';
 import type { ObjectSpec, TreeSpec } from './layout';
 import { createPuffs } from './puffs';
+import { createOcclusion, type SightTarget } from './see-through';
 import { createTrunkGeometry, trunkPieces, trunkTop } from './trunk';
 
 /**
@@ -142,6 +144,13 @@ const speedOf = ({ x, y, z }: { x: number; y: number; z: number }) =>
 const MAGNET_RANGE = 3;
 const MAGNET_PULL = 30;
 
+/**
+ * An object hiding the hole or a halo turns see-through (inbox): its alpha
+ * eases to `FADED_ALPHA` over `FADE_TIME` s, and back.
+ */
+export const FADED_ALPHA = 0.35;
+const FADE_TIME = 0.2;
+
 const UP = new Vector3(0, 1, 0);
 const ONE = new Vector3(1, 1, 1);
 const ORIGIN = new Vector3(0, 0, 0);
@@ -198,8 +207,12 @@ interface Leaf {
 type Kind = 'sphere' | 'box' | 'tree';
 
 interface Part {
-	readonly instances: Drawer;
-	readonly slot: Slot;
+	/** Shape id, the same in both batches. */
+	readonly geometry: number;
+	readonly color: number;
+	/** The batch drawing it: solid, or see-through while its object fades. */
+	batch: Batch;
+	slot: Slot;
 	/** Body-space transform of the part; rebuilt per frame for leaves. */
 	readonly local: Matrix4;
 	readonly leaf?: Leaf;
@@ -234,6 +247,10 @@ interface Entity {
 	strandedSteps: number;
 	/** Past the land's edge: no longer collides with the hole's ground. */
 	offLand: boolean;
+	/** Alpha, 1 when solid; eases toward `FADED_ALPHA` while it hides a target. */
+	fade: number;
+	/** In the way of a hidden target, as of the latest measure. */
+	hiding: boolean;
 }
 
 /** An object popping: out of physics, still drawn until it is gone. */
@@ -275,6 +292,8 @@ export interface BodySnapshot {
 	z: number;
 	/** Largest leaf squeeze, 0 for anything but a live tree. */
 	squeeze: number;
+	/** Alpha: 1 solid, lower while see-through. */
+	fade: number;
 	/** Cube; sphere; trunk segments plus one piece per leaf. */
 	pieces: PieceSnapshot[];
 }
@@ -302,10 +321,19 @@ export interface Objects {
 	snapshot(): BodySnapshot[];
 	/** White puffs bursting out of a point; `size` in m. */
 	burst(x: number, y: number, z: number, size: number): void;
+	/**
+	 * Fades objects hiding a target more than half from `camera` and brings
+	 * back the rest, over `dt` s. Once per frame, after the camera moved.
+	 */
+	seeThrough(
+		dt: number,
+		camera: Vector3,
+		targets: readonly SightTarget[]
+	): void;
 }
 
 /**
- * Physics bodies and instanced meshes for every object. Stacks are one body
+ * Physics bodies and batched meshes for every object. Stacks are one body
  * per cube, so they topple; trees are one body with trunk and leaf colliders.
  * Nothing decides that an object falls: the opening is a real gap in the
  * ground, and gravity does the rest.
@@ -316,48 +344,79 @@ export function createObjects(
 	scene: Scene,
 	specs: ObjectSpec[]
 ): Objects {
-	const gradientMap = createToonGradient();
-	const material = new MeshToonMaterial({ gradientMap });
-	// Trunks carry a vertex color for their lighter cut face.
-	const trunkMaterial = new MeshToonMaterial({
-		gradientMap,
-		vertexColors: true,
-	});
-	let cubeCount = 0;
-	let sphereCount = 0;
-	let leafCount = 0;
+	// Every object in one batch, one draw call: unit cube, sphere and leaf
+	// shapes shared, every trunk its own shape. A second batch holds the same
+	// shapes for objects fading see-through; it draws nothing while empty.
+	const shapes = {
+		cube: batchable(new BoxGeometry(1, 1, 1)),
+		sphere: batchable(new SphereGeometry(1, 24, 16)),
+		leaf: batchable(new SphereGeometry(1, 16, 12)),
+	};
+	const size = { instances: 0, vertices: 0, indices: 0 };
 	const trunkGeometries = new Map<TreeSpec, BufferGeometry>();
-	let trunkVertices = 0;
+	for (const geometry of Object.values(shapes)) {
+		const { vertices, indices } = sizeOf(geometry);
+		size.vertices += vertices;
+		size.indices += indices;
+	}
 	for (const spec of specs) {
-		if (spec.kind === 'stack') cubeCount += spec.cubes;
-		else if (spec.kind === 'sphere') sphereCount++;
+		if (spec.kind === 'stack') size.instances += spec.cubes;
+		else if (spec.kind === 'sphere') size.instances++;
 		else {
-			leafCount += spec.leaves.length;
-			const geometry = createTrunkGeometry(spec.trunk);
+			size.instances += 1 + spec.leaves.length;
+			// Its vertex color lightens the cut face on top.
+			const geometry = batchable(createTrunkGeometry(spec.trunk));
 			trunkGeometries.set(spec, geometry);
-			trunkVertices += geometry.getAttribute('position').count;
+			const { vertices, indices } = sizeOf(geometry);
+			size.vertices += vertices;
+			size.indices += indices;
 		}
 	}
-	const cubes = createInstances(new BoxGeometry(1, 1, 1), material, cubeCount);
-	const spheres = createInstances(
-		new SphereGeometry(1, 24, 16),
-		material,
-		sphereCount
+	const gradientMap = createToonGradient();
+	const solid = createBatch(
+		new MeshToonMaterial({ gradientMap, vertexColors: true }),
+		size,
+		false
 	);
-	// Every trunk is its own shape: one batch, still one draw call.
-	const trunks = createBatch(
-		trunkMaterial,
-		trunkGeometries.size,
-		trunkVertices
+	// Back to front, so faded objects blend over each other in order.
+	const faded = createBatch(
+		new MeshToonMaterial({
+			gradientMap,
+			vertexColors: true,
+			transparent: true,
+			depthWrite: false,
+		}),
+		size,
+		true
 	);
-	const leaves = createInstances(
-		new SphereGeometry(1, 16, 12),
-		material,
-		leafCount
-	);
-	scene.add(cubes.mesh, spheres.mesh, trunks.mesh, leaves.mesh);
+	scene.add(solid.mesh, faded.mesh);
+	/** Registers a shape in both batches, under the same id. */
+	const register = (geometry: BufferGeometry) => {
+		const id = solid.addGeometry(geometry);
+		if (faded.addGeometry(geometry) !== id) {
+			throw new Error('batches registered a shape under different ids');
+		}
+		return id;
+	};
+	const cubeShape = register(shapes.cube);
+	const sphereShape = register(shapes.sphere);
+	const leafShape = register(shapes.leaf);
+	const part = (
+		geometry: number,
+		color: number,
+		local: Matrix4,
+		leaf?: Leaf
+	): Part => ({
+		geometry,
+		color,
+		batch: solid,
+		slot: solid.add(geometry, color, 1),
+		local,
+		...(leaf && { leaf }),
+	});
 
 	const entities: Entity[] = [];
+	const entityByBody = new Map<number, Entity>();
 	const leafByCollider = new Map<number, Leaf>();
 	/** Physics steps taken, for how recent a rim contact is. */
 	let step = 0;
@@ -382,6 +441,8 @@ export function createObjects(
 			| 'current'
 			| 'strandedSteps'
 			| 'offLand'
+			| 'fade'
+			| 'hiding'
 			| 'half'
 			| 'radius'
 			| 'trunkTop'
@@ -398,7 +459,7 @@ export function createObjects(
 			position: current.position.clone(),
 			rotation: current.rotation.clone(),
 		};
-		entities.push({
+		const added: Entity = {
 			half: new Vector3(),
 			radius: 0,
 			trunkTop: new Vector3(),
@@ -409,7 +470,11 @@ export function createObjects(
 			current,
 			strandedSteps: 0,
 			offLand: false,
-		});
+			fade: 1,
+			hiding: false,
+		};
+		entities.push(added);
+		entityByBody.set(added.body.handle, added);
 	};
 
 	for (const spec of specs) {
@@ -437,7 +502,7 @@ export function createObjects(
 					body,
 					kind: 'box',
 					half,
-					parts: [{ instances: cubes, slot: cubes.add(spec.color), local }],
+					parts: [part(cubeShape, spec.color, local)],
 					fit: Math.hypot(half.x, half.z),
 					extent: half.length(),
 				});
@@ -451,11 +516,11 @@ export function createObjects(
 				kind: 'sphere',
 				radius: spec.radius,
 				parts: [
-					{
-						instances: spheres,
-						slot: spheres.add(spec.color),
-						local: new Matrix4().makeScale(scale, scale, scale),
-					},
+					part(
+						sphereShape,
+						spec.color,
+						new Matrix4().makeScale(scale, scale, scale)
+					),
 				],
 				fit: spec.radius,
 				extent: spec.radius,
@@ -475,11 +540,11 @@ export function createObjects(
 			}
 			const top = trunkTop(spec.trunk);
 			const parts: Part[] = [
-				{
-					instances: trunks,
-					slot: trunks.add(trunkGeometries.get(spec)!, spec.trunkColor),
-					local: new Matrix4(),
-				},
+				part(
+					register(trunkGeometries.get(spec)!),
+					spec.trunkColor,
+					new Matrix4()
+				),
 			];
 			const treeLeaves: Leaf[] = [];
 			let extent = Math.max(...pieces.flat().map((point) => point.length()));
@@ -506,12 +571,7 @@ export function createObjects(
 				};
 				leafByCollider.set(collider.handle, leaf);
 				treeLeaves.push(leaf);
-				parts.push({
-					instances: leaves,
-					slot: leaves.add(leafSpec.color),
-					local: new Matrix4(),
-					leaf,
-				});
+				parts.push(part(leafShape, leafSpec.color, new Matrix4(), leaf));
 				extent = Math.max(
 					extent,
 					Math.hypot(leafSpec.x, leafSpec.y, leafSpec.z) + leafSpec.radius
@@ -536,18 +596,46 @@ export function createObjects(
 		for (const leaf of entity.leaves) {
 			leafByCollider.delete(leaf.collider.handle);
 		}
+		entityByBody.delete(entity.body.handle);
 		world.removeRigidBody(entity.body);
 		const last = entities.pop()!;
 		if (last !== entity) entities[index] = last;
 		return entity;
 	};
 	const undraw = (entity: Entity) => {
-		for (const part of entity.parts) part.instances.remove(part.slot);
+		for (const { batch, slot } of entity.parts) batch.remove(slot);
 	};
 	const remove = (index: number) => undraw(detach(index));
 
 	const pops: Pop[] = [];
 	const puffs = createPuffs(scene);
+
+	const occlusion = createOcclusion(rapier, world);
+	/** The hole as of the latest step. */
+	let lastHole: HoleState | undefined;
+	/**
+	 * Whether a body can hide a target: an object not over the opening. One
+	 * over it is being swallowed, not hiding the hole.
+	 */
+	const counts = (handle: number) => {
+		const entity = entityByBody.get(handle);
+		if (!entity) return false;
+		if (!lastHole) return true;
+		const { x, z } = entity.current.position;
+		return Math.hypot(x - lastHole.x, z - lastHole.z) >= lastHole.radius;
+	};
+	const markHiding = (handle: number) => {
+		entityByBody.get(handle)!.hiding = true;
+	};
+	const moved = new Matrix4();
+	/** Moves a part into another batch, keeping its pose. */
+	const movePart = (part: Part, to: Batch) => {
+		part.batch.getMatrix(part.slot, moved);
+		part.batch.remove(part.slot);
+		part.slot = to.add(part.geometry, part.color, 1);
+		to.setMatrix(part.slot, moved);
+		part.batch = to;
+	};
 
 	/** Pops object `index`: out of physics now, drawn shrinking a moment more. */
 	const startPop = (index: number) => {
@@ -807,6 +895,7 @@ export function createObjects(
 		},
 		afterStep(hole) {
 			step++;
+			lastHole = hole;
 			for (let i = entities.length - 1; i >= 0; i--) {
 				const entity = entities[i]!;
 				const asleep = entity.body.isSleeping();
@@ -861,7 +950,7 @@ export function createObjects(
 				for (const part of entity.parts) {
 					if (part.leaf) writeLeafMatrix(part.leaf, rotation, part.local);
 					matrix.multiplyMatrices(bodyMatrix, part.local);
-					part.instances.setMatrix(part.slot, matrix);
+					part.batch.setMatrix(part.slot, matrix);
 				}
 			}
 			for (const { entity, center, age } of pops) {
@@ -878,14 +967,28 @@ export function createObjects(
 					.premultiply(popMatrix);
 				for (const part of entity.parts) {
 					matrix.multiplyMatrices(bodyMatrix, part.local);
-					part.instances.setMatrix(part.slot, matrix);
+					part.batch.setMatrix(part.slot, matrix);
 				}
 			}
 			puffs.draw(alpha);
-			cubes.commit();
-			spheres.commit();
-			trunks.commit();
-			leaves.commit();
+		},
+		seeThrough(dt, camera, targets) {
+			for (const entity of entities) entity.hiding = false;
+			occlusion.measure(camera, targets, counts, markHiding);
+			const change = ((1 - FADED_ALPHA) * dt) / FADE_TIME;
+			for (const entity of entities) {
+				const target = entity.hiding ? FADED_ALPHA : 1;
+				if (entity.fade === target) continue;
+				entity.fade =
+					target < entity.fade
+						? Math.max(target, entity.fade - change)
+						: Math.min(target, entity.fade + change);
+				const batch = entity.fade < 1 ? faded : solid;
+				for (const part of entity.parts) {
+					if (part.batch !== batch) movePart(part, batch);
+					part.batch.setColor(part.slot, part.color, entity.fade);
+				}
+			}
 		},
 		count() {
 			return entities.length;
@@ -932,6 +1035,7 @@ export function createObjects(
 					y: current.position.y,
 					z: current.position.z,
 					squeeze: Math.max(0, ...entity.leaves.map((l) => l.squeeze.value)),
+					fade: entity.fade,
 					pieces,
 				};
 			});

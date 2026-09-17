@@ -13,6 +13,7 @@ import {
 	type Scene,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { SightTarget } from '../objects/see-through';
 import type { Simulation } from '../physics/simulation';
 import type { GroundVector } from '../player/movement';
 import { createToonGradient } from '../world/lighting';
@@ -56,6 +57,8 @@ export interface Powerups {
 	update(dt: number, hole: GroundVector, holeRadius: number): void;
 	/** The drop waiting on the map, if any. */
 	readonly drop: Drop | undefined;
+	/** The waiting drop's halo, for objects in front of it to turn see-through. */
+	readonly halo: SightTarget | undefined;
 }
 
 /**
@@ -84,10 +87,23 @@ export function createPowerups(scene: Scene, simulation: Simulation): Powerups {
 	let angle = 0;
 	/** Seconds since the drop was taken; negative while it waits. */
 	let consumed = -1;
+	const haloTarget: SightTarget = {
+		x: 0,
+		y: HOVER,
+		z: 0,
+		radius: HALO_RADIUS,
+		flat: false,
+	};
 
 	return {
 		get drop() {
 			return drops.drop;
+		},
+		get halo() {
+			if (!drop.visible || consumed >= 0) return undefined;
+			haloTarget.x = drop.position.x;
+			haloTarget.z = drop.position.z;
+			return haloTarget;
 		},
 		update(dt, hole, holeRadius) {
 			const { spawned, taken } = drops.update(dt, hole, holeRadius);
