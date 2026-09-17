@@ -37,3 +37,13 @@ There should be no comprimising with the performance. It should be optimized to 
 ## v0.3.0
 
 - the sea should gain idle "bubbled white water" waves animation.
+- the tree trunk should not be a plain cylinder. it should be like slight twisting and bending and should have an almost square base shape instead of a circular. should be like a "lightly bended in few place long cuboid" see `reference/trees`
+- the objects that somehow reach on top of borderzone are permanently unconsumable. what can be done about it?
+- environment standardisation:
+  - the outzone, borderzone, and playzone are the standard in every environment but they will have elevation and design variations.
+  - playzone stays at elevation 0. borderzone will be few meters up compared to playzone. outzone will be few meters down compared to the borderzone.
+  - the tiles are no longer a global environment feature it. it is now a specific terrain feature for the debug environment (the current built environment).
+  - every environment will have a base terrain. like the green grid with dark green patched grid is a base terrain look for the debug environment's playzone the elevated concrete grid is for debug environment's borderzone and idle waves sea for the outzone.
+  - the environment zones can have vertical depth and elevations in the base terrain of any zone, the objects must be built to support that elevation for example. 1m deep craters in moon with a .5m roughed pointy elevated border. should a building is to be placed on the border itself, the elevated portion get's flattened as well as the depth portion of the crater under that building with slight smoothness. the same moon environment might also have a variable height borderzone starting from roughed pointy inner border topping 2m elevation smoothing down 10 meters out to 1 level elevation as if the playzone is taking place inside a big moon crater. the outzone will be similar as playzone. similarly a ruined city might feature cracks in the ground which has lava in the bottom. should a building has to be placed on top of it, the ground there becomes correctly filled and raised.
+- implement "powerup drops", like a 3d model of a magnet rotating and wobbling up and down inside a spherical glowing halo. as soon as they touch the player's colored border, the halo pops and the 3d model starts to expand, increase it's rotation exponentially and eventually "pops?" indicating it's been consumed.
+- if the halo get's obstructed more than 50% by an object, that object should become kinda see through. this might have some unintentional side effects. if the hole is obstructed with two object 49% 49% what should the outcome be?
