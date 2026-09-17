@@ -8,9 +8,9 @@ at -1 m. Phase 11 done (v0.3.1): foam shader on the sea. Next: Phase 13 (trunks)
 answers. Waiting on admin
 answers for 12, 14, 15, 16: stranded objects (pop vs nudge back), magnet effect and drop rules,
 see-through targets (hole, halos, both), moon objects and look, plus the assumed debug
-elevations (path 1 m, sea -1 m). Last verified live: v0.3.0, 2026-09-17: `ls-remote` main and
-tag `v0.3.0^{}` = `e158788`; production build stamp `e158788` on the first poll; headless drive
-to the +x +z corner on production, physics ready, no console errors, same picture as dev.
+elevations (path 1 m, sea -1 m). Last verified live: v0.3.1, 2026-09-17: `ls-remote` main and
+tag `v0.3.1^{}` = `818fd5a`; production build stamp `818fd5a` on the second poll (10 s);
+headless drive to the +x +z corner on production, physics ready, no console errors, foam drawn.
 
 ## GOTCHAS
 
