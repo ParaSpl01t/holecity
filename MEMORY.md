@@ -5,10 +5,10 @@ standard, sea waves, stranded objects, tree trunks, powerup drops, see-through o
 environment with terrain relief, lobby). Admin said "start" 2026-09-17. Phase 10 done (v0.3.0):
 environments defined in `src/environments/`, debug environment built through it, sea is a mesh
 at -1 m. Phase 11 done (v0.3.1): foam shader on the sea. Phase 13 done (v0.3.2): seeded bent
-trunks, one batch. Every phase left needs admin answers. Waiting on admin
-answers for 12, 14, 15, 16: stranded objects (pop vs nudge back), magnet effect and drop rules,
-see-through targets (hole, halos, both), moon objects and look, plus the assumed debug
-elevations (path 1 m, sea -1 m). Last verified live: v0.3.2, 2026-09-17: `ls-remote` main and
+trunks, one batch. Admin answered 2026-09-17 (recorded in the `TODOS.md` v0.3 header): pop,
+magnet as proposed, see-through for both, moon greyscale with a very slight blue tint, debug
+elevations confirmed. Still open: moon objects. Next: Phase 12 (stranded objects pop), then 14,
+15, 16, 17. Last verified live: v0.3.2, 2026-09-17: `ls-remote` main and
 tag `v0.3.2^{}` = `8b08922`; production build stamp `8b08922` on the second poll (10 s);
 headless drive to the +x +z corner on production, physics ready, no console errors, foam and a
 faceted trunk drawn. Browser suite not run as a whole in v0.3 yet (desktop, touch and perf

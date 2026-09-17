@@ -245,6 +245,11 @@ on the questions asked in chat 2026-09-17._
 _2026-09-17, admin: "start", with the chat questions unanswered. Phase 10 goes ahead on its
 assumed debug elevations (path 1 m, sea surface 2 m below the path top)._
 
+_2026-09-17, admin answers (after v0.3.2): stranded objects pop; magnet effect and drop rules as
+proposed, "ok for now" (the whole powerup system's timing and upgrades come later); see-through
+for both the hole and halos; moon is greyscale with a very slight blue tint, crater width and
+count at own judgement; debug elevations confirmed. Still open: which objects the moon has._
+
 ## Phase 10 - environment standard ✅ (2026-09-17, v0.3.0)
 
 _Inbox: outzone, borderzone and playzone are the standard in every environment, with elevation
@@ -256,8 +261,8 @@ they are the debug environment's (today's) terrain._
       `src/world/zones.ts` (plus `LAND_HALF`, which `terrain.ts` and `hole.ts` each defined).
       Resolves the deferred "environment definition" item
 - [x] elevations: playzone at 0, borderzone top above it, outzone surface below the borderzone
-      top. Debug environment (assumed, to confirm): borderzone stays 1 m (admin, v0.2), sea
-      surface at -1 m (2 m below the path top), outer wall runs down to the sea. Seen headless at
+      top. Debug environment (confirmed by admin 2026-09-17): borderzone stays 1 m (admin, v0.2),
+      sea surface at -1 m (2 m below the path top), outer wall runs down to the sea. Seen headless at
       the +x +z corner: the outer wall strip doubled, no console errors
 - [x] debug environment (`src/environments/debug/`): today's look through the definition. Tile
       size, patch generator, land texture and ground colors (`debugPalette`) moved there;
@@ -292,7 +297,7 @@ they are the debug environment's (today's) terrain._
       (`worldToScreen`) and lifts the finger first (the joystick covered the new point: first
       run failed with rgb(97,182,216)). Desktop 7 of 7, touch 3 of 3
 
-## Phase 12 - stranded objects ⬜ (needs admin decision)
+## Phase 12 - stranded objects ⬜
 
 _Inbox: objects that end up on top of the borderzone can never be swallowed; admin asks what can
 be done. Cause: the hole's physics opening is in the ground at y = 0, under the path's slabs, and
@@ -301,10 +306,10 @@ the path covers the hole (admin, v0.2)._
 - [ ] find how they get there before fixing: a headless run driving the hole along the edges,
       logging each object that comes to rest on the path and what put it there (toppled stack,
       shoved sphere climbing the 1 m step, falling tree). Recorded in `MEMORY.md`
-- [ ] decision, proposed: an object resting outside the playzone (path, or a solid outzone like
-      the moon's) pops after a short delay and is gone, with the pop from Phase 14. Alternative:
-      the path nudges resting objects back over its ledge into the playzone (keeps every object,
-      but objects visibly slide on their own, and a borderzone sloping outward fights the nudge)
+- [x] decision (admin, 2026-09-17): pop. An object resting outside the playzone (path, or a
+      solid outzone like the moon's) pops after a short delay and is gone. The pop is built here
+      and reused by Phase 14. Rejected: the path nudging resting objects back into the playzone
+- [ ] pop: an object at rest outside the playzone for a moment pops and is removed
 - [ ] objects pushed off the outer edge sink through the sea surface (no sea collider), out of
       sight, and are removed. Correction (2026-09-17): this line first said "as today". Read in
       `src/physics/hole-body.ts`, not yet run: the hole's ground reaches 300 m around the hole,
@@ -347,33 +352,37 @@ faceted green crowns._
       a headless screenshot beside the nearest live tree: faceted, flared, bent, cut face on a
       dead tree, no console errors
 
-## Phase 14 - powerup drops ⬜ (needs admin decision)
+## Phase 14 - powerup drops ⬜
 
 _Inbox: a 3D magnet rotating and bobbing inside a glowing spherical halo. When it touches the
 hole's colored ring, the halo pops, the magnet expands, spins exponentially faster, then pops:
 consumed._
 
-- [ ] decision, what the magnet does. Proposed: for 10 s, objects that fit the hole and lie
-      within 3 hole radii are pulled toward it
-- [ ] decision, when and where drops appear. Proposed: one on the map at a time, at a random
-      clear playzone spot outside the spawn clearing, the next ~20 s after the last is taken
+- [x] decision (admin, 2026-09-17, "ok for now"): the magnet pulls objects that fit the hole and
+      lie within 3 hole radii toward it, for 10 s. Timing and upgrades of the whole powerup system
+      come later (deferred)
+- [x] decision (same): one drop on the map at a time, at a random clear playzone spot outside
+      the spawn clearing, the next ~20 s after the last is taken
+- [ ] magnet effect: pull, 10 s, objects that fit within 3 hole radii
+- [ ] drop spawning: one at a time, clear spot, ~20 s after pickup
 - [ ] magnet: red horseshoe with silver tips, primitives merged into one geometry, toon-lit;
       spins about y and bobs
 - [ ] halo: sphere with a glowing edge (fresnel shader), additive, pastel
 - [ ] pickup: the hole's ring (radius + 1 m) reaches the halo, judged on the ground plane. Drops
       float with no physics body; objects pass through them
 - [ ] consume: halo pops (scales up and fades, ~0.15 s); magnet grows while its spin speed
-      rises exponentially; then pops (a quick expanding flash) and is gone. Timings tuned on the
-      dev server
+      rises exponentially; then pops (the Phase 12 pop) and is gone. Timings tuned on the dev
+      server
 - [ ] unit tests: pickup distance per hole size, drop placement clear of objects and spawn
 
-## Phase 15 - see-through objects ⬜ (needs admin decision)
+## Phase 15 - see-through objects ⬜
 
 _Inbox: an object hiding more than 50% of the halo turns see-through, with side effects to
 expect; admin asks the outcome for two objects hiding 49% each. The item names the halo, its
 question names the hole._
 
-- [ ] decision, targets. Proposed: both the hole (opening plus ring) and every powerup halo
+- [x] decision (admin, 2026-09-17): targets are both the hole (opening plus ring) and every
+      powerup halo
 - [ ] rule, answering 49% + 49%: judge how much of the target is hidden in total, not per object.
       Over 50% hidden: every object hiding any part of it fades. 49% + 49% = 98% hidden, so both
       fade; two slivers adding up to 20% fade nothing
@@ -401,9 +410,10 @@ moon is launchable, so it is the first environment with relief. The ruined city 
 only, not planned._
 
 - [ ] decision, moon objects: the inbox names buildings only as an example. Debug objects
-      (stacks, spheres, trees) on the moon would be a placeholder
-- [ ] decision, moon look: colors of ground, crater floors, rims, borderzone, outzone and sky;
-      crater count and sizes (only the 1 m depth and 0.5 m rim are given)
+      (stacks, spheres, trees) on the moon would be a placeholder. Asked 2026-09-17, not yet
+      answered
+- [x] decision (admin, 2026-09-17): moon look is greyscale with a very slight blue tint; crater
+      width and count at own judgement (only the 1 m depth and 0.5 m rim are given)
 - [ ] design first, the hard part: the hole on uneven ground. Today the hole's ground is one flat
       collider moving with the hole (`src/physics/hole-body.ts`) and the opening a flat stencil
       disc at y = 0 (`src/player/hole.ts`). Relief has to stay put while the opening moves:
@@ -437,3 +447,6 @@ moon environment. Supersedes v0.1.x "no HUD or lobby, directly spawn in a game".
 - **hole as ground cutout** - moved into Phase 8 (2026-09-16), now that v0.2 brings objects
 - **environment definition** - moved into Phase 10 (2026-09-17): the admin specced the standard
   in `INBOX.md` `## v0.3.0`
+- **powerup system timing and upgrades** - admin (2026-09-17): the magnet's 10 s / 3 radii / one
+  drop every ~20 s are "ok for now"; the admin will think through timing and upgrades for the
+  whole powerup system later
