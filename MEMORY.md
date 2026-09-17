@@ -8,10 +8,9 @@ at -1 m. Phase 11 done (v0.3.1): foam shader on the sea. Phase 13 done (v0.3.2):
 trunks, one batch. Admin answered 2026-09-17 (recorded in the `TODOS.md` v0.3 header): pop,
 magnet as proposed, see-through for both, moon greyscale with a very slight blue tint, debug
 elevations confirmed. Still open: moon objects. Phase 12 done (v0.3.3): stranded objects pop,
-off-land objects sink. Next: Phase 14 (powerup drops), then 15, 16, 17. Last verified live: v0.3.2, 2026-09-17: `ls-remote` main and
-tag `v0.3.2^{}` = `8b08922`; production build stamp `8b08922` on the second poll (10 s);
-headless drive to the +x +z corner on production, physics ready, no console errors, foam and a
-faceted trunk drawn. Browser suite not run as a whole in v0.3 yet (desktop, touch and perf
+off-land objects sink. Next: Phase 14 (powerup drops), then 15, 16, 17. Last verified live: v0.3.3, 2026-09-17: `ls-remote` main and
+tag `v0.3.3^{}` = `cf559f1`; production build stamp `cf559f1` on the first poll; headless drive
+to the +x +z corner on production, physics ready, no console errors. Browser suite not run as a whole in v0.3 yet (desktop, touch and perf
 specs green separately); due at the v0.3 milestone.
 
 ## GOTCHAS
