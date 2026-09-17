@@ -5,6 +5,7 @@ import {
 	RING_WIDTH,
 } from '../src/player/dimensions';
 import { palette } from '../src/world/palette';
+import { BORDER_WIDTH } from '../src/world/zones';
 import {
 	besideHole,
 	colorsAt,
@@ -13,11 +14,15 @@ import {
 	expectShaft,
 	expectStill,
 	openGame,
+	PLAIN_WATER,
 	test,
 	waitUntilStill,
 } from './fixtures';
 
 const PATH = [debugPalette.concrete, debugPalette.concreteTint];
+
+/** From a hole pinned on a playzone edge, across the path to plain water. */
+const SEA_BESIDE_EDGE = BORDER_WIDTH + PLAIN_WATER;
 
 test('WASD drives the hole into the -x -z corner, where it stops', async ({
 	page,
@@ -30,7 +35,7 @@ test('WASD drives the hole into the -x -z corner, where it stops', async ({
 	// Pinned on the corner: the concrete path, then the sea, to its left.
 	const [path, sea] = await colorsAt(page, [
 		besideHole(page, -7),
-		besideHole(page, -13),
+		besideHole(page, -SEA_BESIDE_EDGE),
 	]);
 	expectColor(path!, PATH, 'borderzone left of the hole');
 	expectColor(sea!, debugPalette.sea, 'outzone past the borderzone');
@@ -48,7 +53,7 @@ test('the hole steers toward the cursor, up to the playzone edge', async ({
 	// Pinned on the +x edge: the concrete path, then the sea, to its right.
 	const [path, sea] = await colorsAt(page, [
 		besideHole(page, 7),
-		besideHole(page, 13),
+		besideHole(page, SEA_BESIDE_EDGE),
 	]);
 	expectColor(path!, PATH, 'borderzone right of the hole');
 	expectColor(sea!, debugPalette.sea, 'outzone past the borderzone');

@@ -11,4 +11,6 @@ export const debugPalette = {
 	concrete: 0xd6d2c4,
 	concreteTint: 0xdfdbce,
 	sea: 0x6fd0f6,
+	/** White water on the sea: barely blue, so it reads as foam, not paint. */
+	foam: 0xf4fcff,
 } as const;

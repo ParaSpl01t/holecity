@@ -271,16 +271,26 @@ they are the debug environment's (today's) terrain._
 - [x] unit tests: borderzone above the playzone, outzone below the borderzone top, per
       environment; tile tests moved with the generator. 38 of 38
 
-## Phase 11 - sea waves ⬜
+## Phase 11 - sea waves ✅ (2026-09-17, v0.3.1)
 
-- [ ] idle "bubbled white water" (no reference given, assumed): white foam hugging the
-      borderzone's outer wall that breathes in and out, its sea side broken into round bubbles,
-      plus sparse foam blobs drifting on open water. Flat, pastel, cartoon
-- [ ] one draw call: a shader on the outzone mesh driven by one time uniform. Foam from the
-      distance to the land edge (analytic for a square) and cheap noise; no textures, no CPU
-      work per frame beyond the uniform
-- [ ] seen in a headless screenshot at a playzone corner (most sea in view); motion checked by
-      the admin on the dev server
+- [x] idle "bubbled white water" (no reference given, assumed): a white foam band hugging the
+      path's outer wall, breathing in and out; round pulsing bubbles along its outer edge;
+      broken foam lines rolling in toward the shore and merging into the band; sparse foam
+      clusters drifting on open water from 12 m out (`CALM_REACH`). Flat, pastel, cartoon
+      (`src/environments/debug/sea.ts`)
+- [x] one draw call: a shader on the sea mesh; its one time uniform is set in the material's
+      `onBeforeRender`, so only when the sea is drawn. Foam from the analytic distance to the
+      land square (rounded at corners) and cell hashes; no textures
+- [x] seen in headless screenshots at the +x +z corner, two frames 1.5 s apart: foam moves, no
+      console errors. First pass left 1 px specks all over the water: shapes shrunk to zero
+      size still drew a half-covered anti-aliased pixel at their center. Fix: every shape's
+      coverage also fades with its size below a pixel. Motion to be judged by the admin on the
+      dev server
+- [x] browser tests sample the sea where it is always plain: `PLAIN_WATER` (`e2e/fixtures.ts`),
+      halfway between the wave lines' reach and the drifting foam, derived from the shader's
+      constants. The touch test now projects that point through the game's camera rig
+      (`worldToScreen`) and lifts the finger first (the joystick covered the new point: first
+      run failed with rgb(97,182,216)). Desktop 7 of 7, touch 3 of 3
 
 ## Phase 12 - stranded objects ⬜ (needs admin decision)
 

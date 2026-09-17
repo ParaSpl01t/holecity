@@ -4,19 +4,25 @@
  * game exposes when opened with `?e2e`.
  */
 import { test as base, expect, type Page } from '@playwright/test';
+import { Vector3 } from 'three';
+import { CALM_REACH, SHORE_REACH } from '../src/environments/debug/sea';
 import { HOLE_RADIUS, RING_WIDTH } from '../src/player/dimensions';
-import { SHORT_SIDE_SPAN } from '../src/world/camera';
+import type { GroundVector } from '../src/player/movement';
+import { createCameraRig, SHORT_SIDE_SPAN } from '../src/world/camera';
 import { palette } from '../src/world/palette';
 
 export { expect };
 
 export type Rgb = [number, number, number];
 
-/** Bottom strip holding the FPS readout, in CSS px: keep samples above it. */
-export const FPS_STRIP = 40;
-
 /** Distance from the hole center to the middle of its ring, in m. */
 export const RING_MID = HOLE_RADIUS + RING_WIDTH / 2;
+
+/**
+ * Offshore distance, in m, where the sea is always plain: past the shore foam
+ * and wave lines, short of the drifting foam. Sea color is sampled there.
+ */
+export const PLAIN_WATER = (SHORE_REACH + CALM_REACH) / 2;
 
 /**
  * Wait between two hole positions compared for motion, in ms. At full speed
@@ -81,6 +87,24 @@ export function view(page: Page) {
 export function besideHole(page: Page, meters: number): [number, number] {
 	const { cx, cy, pxPerMeter } = view(page);
 	return [cx + meters * pxPerMeter, cy];
+}
+
+/**
+ * Screen point, in CSS px, of a world point while the hole is at `hole`:
+ * projected through the game's own camera rig.
+ */
+export function worldToScreen(
+	page: Page,
+	hole: GroundVector,
+	[x, y, z]: [x: number, y: number, z: number]
+): [number, number] {
+	const { width, height } = view(page);
+	const rig = createCameraRig();
+	rig.setAspect(width / height);
+	rig.follow(hole.x, hole.z);
+	rig.camera.updateMatrixWorld();
+	const point = new Vector3(x, y, z).project(rig.camera);
+	return [((point.x + 1) / 2) * width, ((1 - point.y) / 2) * height];
 }
 
 /** Colors of the current frame at CSS px points, decoded inside the page. */

@@ -22,6 +22,7 @@ import {
 } from '../../world/zones';
 import type { Environment } from '../environment';
 import { debugPalette } from './palette';
+import { createSeaMaterial } from './sea';
 import { ACCENT, generateTileKinds, TILE_SIZE, TILES_PER_SIDE } from './tiles';
 
 /** Borderzone width, in tiles. */
@@ -35,8 +36,8 @@ type Corner = readonly [x: number, z: number];
 
 /**
  * Debug environment base terrain: playzone and raised borderzone sharing one
- * tile texture, and a flat sea around them. Three draw calls. Colliders live
- * in the physics simulation.
+ * tile texture, and a flat foaming sea around them. Three draw calls.
+ * Colliders live in the physics simulation.
  */
 export function createDebugTerrain(environment: Environment): Group {
 	const texture = createLandTexture(environment.seed);
@@ -237,8 +238,8 @@ function createBorderzone(
 
 /**
  * The sea: a flat square ring at the outzone level, from the land's edge out
- * to `OUTZONE_REACH`. It never reaches under the land, so it never covers the
- * view down through the hole.
+ * to `OUTZONE_REACH`, with animated foam (`sea.ts`). It never reaches under the
+ * land, so it never covers the view down through the hole.
  */
 function createSea(level: number): Mesh {
 	const positions: number[] = [];
@@ -263,7 +264,7 @@ function createSea(level: number): Mesh {
 	geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
 	geometry.setIndex(indices);
 	geometry.computeBoundingSphere();
-	return new Mesh(geometry, new MeshBasicMaterial({ color: debugPalette.sea }));
+	return new Mesh(geometry, createSeaMaterial());
 }
 
 /** Square corners around the origin, all loops wound the same way. */

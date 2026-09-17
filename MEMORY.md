@@ -4,7 +4,8 @@
 standard, sea waves, stranded objects, tree trunks, powerup drops, see-through objects, moon
 environment with terrain relief, lobby). Admin said "start" 2026-09-17. Phase 10 done (v0.3.0):
 environments defined in `src/environments/`, debug environment built through it, sea is a mesh
-at -1 m. Next: Phase 11 (sea waves), then 13 (trunks); neither needs answers. Waiting on admin
+at -1 m. Phase 11 done (v0.3.1): foam shader on the sea. Next: Phase 13 (trunks), needs no
+answers. Waiting on admin
 answers for 12, 14, 15, 16: stranded objects (pop vs nudge back), magnet effect and drop rules,
 see-through targets (hole, halos, both), moon objects and look, plus the assumed debug
 elevations (path 1 m, sea -1 m). Last verified live: v0.3.0, 2026-09-17: `ls-remote` main and
@@ -121,3 +122,7 @@ to the +x +z corner on production, physics ready, no console errors, same pictur
   textures instead of per-tile meshes (playzone). The sea was the clear color until v0.3.0; it
   is now one flat ring mesh (a surface with a level, for waves), with the clear color beyond.
   10 draw calls per frame on the debug environment (2026-09-17).
+- **Animated surfaces are shaders, not geometry** (v0.3.1, sea foam): shapes from distance
+  functions and cell hashes, one time uniform set in `onBeforeRender` (no cost off screen).
+  Every shape's coverage fades with its size below one pixel, or shapes shrinking to nothing
+  leave 1 px specks.

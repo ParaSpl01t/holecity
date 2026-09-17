@@ -1,11 +1,14 @@
-import { debugPalette } from '../src/environments/debug/palette';
 import type { Page } from '@playwright/test';
+import { debugEnvironment } from '../src/environments/debug/debug';
+import { debugPalette } from '../src/environments/debug/palette';
 import {
 	HOLE_RADIUS,
 	HOLE_RADIUS_STEP,
 	RING_WIDTH,
 } from '../src/player/dimensions';
+import { MOVE_LIMIT } from '../src/player/movement';
 import { palette } from '../src/world/palette';
+import { LAND_HALF } from '../src/world/zones';
 import {
 	besideHole,
 	colorsAt,
@@ -13,11 +16,12 @@ import {
 	expectColor,
 	expectMoving,
 	expectStill,
-	FPS_STRIP,
 	openGame,
+	PLAIN_WATER,
 	test,
 	view,
 	waitUntilStill,
+	worldToScreen,
 } from './fixtures';
 
 type TouchType = 'touchStart' | 'touchMove' | 'touchEnd';
@@ -49,11 +53,18 @@ test('a drag shows the joystick and steers the hole along it', async ({
 	await expect(page.locator('.joystick')).toBeVisible();
 	await expectMoving(page);
 	await waitUntilStill(page);
-	// Pinned on the +z edge: the bottom of the screen looks past the
-	// borderzone onto the sea.
-	const [below] = await colorsAt(page, [[cx, height - FPS_STRIP - 10]]);
-	expectColor(below!, debugPalette.sea, 'outzone below the +z edge');
+	// Lifted first: the joystick covers the water sampled below.
 	await finger('touchEnd');
+	await expect(page.locator('.joystick')).toBeHidden();
+	// Pinned on the +z edge: below it on screen, past the borderzone, the sea.
+	const [below] = await colorsAt(page, [
+		worldToScreen(page, { x: 0, z: MOVE_LIMIT }, [
+			0,
+			debugEnvironment.outzoneLevel,
+			LAND_HALF + PLAIN_WATER,
+		]),
+	]);
+	expectColor(below!, debugPalette.sea, 'outzone below the +z edge');
 });
 
 test('the + button grows the hole, the - button shrinks it', async ({
