@@ -366,7 +366,7 @@ faceted green crowns._
       a headless screenshot beside the nearest live tree: faceted, flared, bent, cut face on a
       dead tree, no console errors
 
-## Phase 14 - powerup drops ⬜
+## Phase 14 - powerup drops ✅ (2026-09-17, v0.3.4)
 
 _Inbox: a 3D magnet rotating and bobbing inside a glowing spherical halo. When it touches the
 hole's colored ring, the halo pops, the magnet expands, spins exponentially faster, then pops:
@@ -377,17 +377,32 @@ consumed._
       come later (deferred)
 - [x] decision (same): one drop on the map at a time, at a random clear playzone spot outside
       the spawn clearing, the next ~20 s after the last is taken
-- [ ] magnet effect: pull, 10 s, objects that fit within 3 hole radii
-- [ ] drop spawning: one at a time, clear spot, ~20 s after pickup
-- [ ] magnet: red horseshoe with silver tips, primitives merged into one geometry, toon-lit;
-      spins about y and bobs
-- [ ] halo: sphere with a glowing edge (fresnel shader), additive, pastel
-- [ ] pickup: the hole's ring (radius + 1 m) reaches the halo, judged on the ground plane. Drops
-      float with no physics body; objects pass through them
-- [ ] consume: halo pops (scales up and fades, ~0.15 s); magnet grows while its spin speed
-      rises exponentially; then pops (the Phase 12 pop) and is gone. Timings tuned on the dev
-      server
-- [ ] unit tests: pickup distance per hole size, drop placement clear of objects and spawn
+- [x] magnet effect (`src/objects/objects.ts`): while on, objects whose fit radius (sphere
+      radius, cube half diagonal, trunk reach) is within the hole's radius and that stand within
+      3 hole radii get a 30 m/s² pull toward the hole (above grass friction, 0.8 g); sleeping
+      ones wake. `Simulation.setMagnet`
+- [x] drop spawning (`src/powerups/drops.ts`, logic only): one at a time; first after 5 s
+      (assumed), the next 20 s after the last is taken; a random spot 10 m inside the playzone
+      edge, 25 m or more from the hole, clear of objects (`Simulation.isClear`: a physics query
+      for dynamic colliders in a 26 m column); retries every second if none is clear
+- [x] magnet: red horseshoe with silver tips (torus half + cylinders, merged, vertex colors,
+      toon-lit), 1.9 m tall; spins 2 rad/s and bobs 0.25 m inside the halo
+- [x] halo: 1.6 m sphere, rim glow shader, additive, pale yellow (`palette.halo`), breathing 4%.
+      Its faint center glow first washed the magnet out to pink; lowered
+- [x] pickup: the hole's ring (radius + 1 m) reaches the halo, judged on the ground plane. Drops
+      float with no physics body
+- [x] consume (`src/powerups/powerups.ts`): halo grows 1.5x and fades over 0.15 s; the magnet
+      grows to 2x over 0.8 s while its spin rises exponentially from 2 to 50 rad/s, then bursts
+      into the Phase 12 puffs. Two draw calls while a drop shows, none otherwise
+- [x] unit tests: pickup reach per hole size; spots inside the margin, clear of the hole and of
+      objects; first-drop delay, one at a time, magnet time, next-drop delay, retries (drops);
+      magnet pulls a fitting sphere in, not while off, not a too-big one, not past 3 radii;
+      `isClear` sees objects but not the ground or path. 60 of 60
+- [x] seen headless on the dev server (`?e2e` now also exposes the waiting drop): drop found,
+      hole driven beside it, screenshots of the halo with the magnet, the magnet growing and
+      spinning after pickup, the puff burst, then nothing. First attempt drove the hole over the
+      drop on the way and took it unseen (script path, not the game); also rendered the module
+      alone in its own canvas
 
 ## Phase 15 - see-through objects ⬜
 

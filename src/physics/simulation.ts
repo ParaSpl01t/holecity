@@ -19,11 +19,24 @@ export interface Simulation {
 	/** Steps physics to catch up with `dt`, then draws the objects. */
 	update(dt: number, hole: GroundVector): void;
 	setHoleRadius(radius: number): void;
+	/** Turns the magnet powerup's pull on or off. */
+	setMagnet(active: boolean): void;
+	/** Whether no object stands within `radius` m of a spot. */
+	isClear(x: number, z: number, radius: number): boolean;
+	/** White puffs bursting out of a point; `size` in m. */
+	burst(x: number, y: number, z: number, size: number): void;
 	/** Objects not yet swallowed. */
 	readonly remaining: number;
 	/** State of the objects left: for tests and debugging. */
 	snapshot(): BodySnapshot[];
 }
+
+/**
+ * Half the height of the column checked for objects around a spot, in m: from
+ * just above the ground past the tallest stack (24 m).
+ */
+const CLEAR_HALF_HEIGHT = 13;
+const NO_ROTATION = { x: 0, y: 0, z: 0, w: 1 };
 
 /**
  * Physics world: the ground around the opening and its collar, the raised
@@ -42,7 +55,7 @@ export function createSimulation(
 	addBorderColliders(rapier, world, environment.borderHeight);
 	const holeBody = createHoleBody(rapier, world);
 	const objects = createObjects(rapier, world, scene, specs);
-	const hole: HoleState = { x: 0, z: 0, radius: holeRadius };
+	const hole: HoleState = { x: 0, z: 0, radius: holeRadius, magnet: false };
 	let accumulator = 0;
 
 	return {
@@ -77,6 +90,24 @@ export function createSimulation(
 		setHoleRadius(radius) {
 			hole.radius = radius;
 		},
+		setMagnet(active) {
+			hole.magnet = active;
+		},
+		isClear(x, z, radius) {
+			let clear = true;
+			world.intersectionsWithShape(
+				{ x, y: CLEAR_HALF_HEIGHT + 0.1, z },
+				NO_ROTATION,
+				new rapier.Cylinder(CLEAR_HALF_HEIGHT, radius),
+				(collider) => {
+					// Objects only: the ground and the path are not in the way.
+					clear = !collider.parent()?.isDynamic();
+					return clear;
+				}
+			);
+			return clear;
+		},
+		burst: (x, y, z, size) => objects.burst(x, y, z, size),
 		get remaining() {
 			return objects.count();
 		},

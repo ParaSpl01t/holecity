@@ -284,3 +284,54 @@ describe('outside the playzone', () => {
 		expect(simulation.remaining).toBe(1);
 	});
 });
+
+describe('magnet', () => {
+	/** How far the only object moved over `seconds`, the hole at the origin. */
+	const drift = (simulation: Simulation, seconds: number) => {
+		run(simulation, 0.5, at(0));
+		const [before] = simulation.snapshot();
+		run(simulation, seconds, at(0));
+		const [after] = simulation.snapshot();
+		expect(before).toBeDefined();
+		expect(after).toBeDefined();
+		return Math.hypot(after!.x - before!.x, after!.z - before!.z);
+	};
+
+	it('pulls an object that fits into the hole', () => {
+		const simulation = simulate([sphere(5, 1)], HOLE_RADIUS);
+		simulation.setMagnet(true);
+		run(simulation, 4, at(0));
+		expect(simulation.remaining).toBe(0);
+	});
+
+	it('pulls nothing while off', () => {
+		const simulation = simulate([sphere(5, 1)], HOLE_RADIUS);
+		expect(drift(simulation, 3)).toBeLessThan(0.1);
+	});
+
+	it('never pulls an object too big for the hole', () => {
+		const simulation = simulate([sphere(5, 2.5)], HOLE_RADIUS);
+		simulation.setMagnet(true);
+		expect(drift(simulation, 3)).toBeLessThan(0.1);
+	});
+
+	it('reaches only three hole radii', () => {
+		const simulation = simulate([sphere(3 * HOLE_RADIUS + 2, 1)], HOLE_RADIUS);
+		simulation.setMagnet(true);
+		expect(drift(simulation, 3)).toBeLessThan(0.1);
+	});
+});
+
+describe('isClear', () => {
+	it('tells a spot with an object from an empty one', () => {
+		const simulation = simulate([sphere(20, 1.5)], HOLE_RADIUS);
+		run(simulation, 0.1, at(0));
+		expect(simulation.isClear(20, 0, 1)).toBe(false);
+		// Reaching 1 m out from x 22 overlaps the sphere's side at 21.5.
+		expect(simulation.isClear(22, 0, 1)).toBe(false);
+		expect(simulation.isClear(30, 0, 1)).toBe(true);
+		// The ground and the path are not in the way.
+		expect(simulation.isClear(0, 0, 1)).toBe(true);
+		expect(simulation.isClear(PLAYZONE_SIZE / 2 + 5, 0, 1)).toBe(true);
+	});
+});

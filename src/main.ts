@@ -15,6 +15,7 @@ import {
 } from './player/dimensions';
 import { createHoleView } from './player/hole';
 import { moveHole, type GroundVector } from './player/movement';
+import { createPowerups, type Powerups } from './powerups/powerups';
 import { createFpsCounter } from './ui/fps-counter';
 import { createCameraRig } from './world/camera';
 import { addLights } from './world/lighting';
@@ -48,19 +49,29 @@ const holePosition: GroundVector = { x: 0, z: 0 };
 const direction: GroundVector = { x: 0, z: 0 };
 const controls = createControls(canvas, rig.camera, holePosition);
 
-// Browser tests open the page with `?e2e` and read where the hole is: objects
-// move on their own, so the picture cannot tell whether the hole moved. A
-// reference, updated by the game as it plays; nothing is written per frame.
-if (new URLSearchParams(location.search).has('e2e')) {
-	Object.assign(window, { holecity: { hole: holePosition } });
-}
-
 // Physics arrives as its own chunk. The ground and the hole work meanwhile,
 // and the objects appear once it is ready.
 let simulation: Simulation | undefined;
+let powerups: Powerups | undefined;
+
+// Browser tests open the page with `?e2e` and read where the hole and the
+// powerup drop are: objects move on their own, so the picture cannot tell
+// whether the hole moved, and a drop lands out of view. A reference and a
+// getter, read by tests; nothing is written per frame.
+if (new URLSearchParams(location.search).has('e2e')) {
+	Object.assign(window, {
+		holecity: {
+			hole: holePosition,
+			get drop() {
+				return powerups?.drop;
+			},
+		},
+	});
+}
 void loadRapier().then((rapier) => {
 	const layout = generateLayout(environment.seed);
 	simulation = createSimulation(rapier, scene, environment, layout, holeRadius);
+	powerups = createPowerups(scene, simulation);
 	// Readiness marker: browser tests wait on it before judging motion.
 	canvas.dataset.physics = 'ready';
 });
@@ -77,6 +88,7 @@ createHoleSizeControls((step) => {
 startLoop((dt, now) => {
 	moveHole(holePosition, controls.read(direction), dt);
 	simulation?.update(dt, holePosition);
+	powerups?.update(dt, holePosition, holeRadius);
 	hole.moveTo(holePosition.x, holePosition.z);
 	rig.follow(holePosition.x, holePosition.z);
 	renderer.render(scene, rig.camera);

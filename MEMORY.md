@@ -8,7 +8,8 @@ at -1 m. Phase 11 done (v0.3.1): foam shader on the sea. Phase 13 done (v0.3.2):
 trunks, one batch. Admin answered 2026-09-17 (recorded in the `TODOS.md` v0.3 header): pop,
 magnet as proposed, see-through for both, moon greyscale with a very slight blue tint, debug
 elevations confirmed. Still open: moon objects. Phase 12 done (v0.3.3): stranded objects pop,
-off-land objects sink. Next: Phase 14 (powerup drops), then 15, 16, 17. Last verified live: v0.3.3, 2026-09-17: `ls-remote` main and
+off-land objects sink. Phase 14 done (v0.3.4): magnet drops. Next: Phase 15 (see-through), then
+16, 17. Last verified live: v0.3.3, 2026-09-17: `ls-remote` main and
 tag `v0.3.3^{}` = `cf559f1`; production build stamp `cf559f1` on the first poll; headless drive
 to the +x +z corner on production, physics ready, no console errors. Browser suite not run as a whole in v0.3 yet (desktop, touch and perf
 specs green separately); due at the v0.3 milestone.
@@ -81,8 +82,10 @@ specs green separately); due at the v0.3 milestone.
   colliders. Judge "fallen" by comparing frames over time, not by a single frame's angle.
 - **Dev server**: `pnpm dev` (`vite --host --strictPort`) on 5173, run in background, log teed
   to the session scratchpad.
-- **Headless input checks** (2026-09-16): the game exposes no state, so movement is judged from
-  pixels. Screenshots clipped above the FPS readout: bytes differ = moving, identical = stopped.
+- **Headless input checks** (2026-09-16; corrected 2026-09-17: this line said the game exposes
+  no state, wrong since v0.2): opened with `?e2e`, the page exposes `window.holecity.hole` (live
+  position) and `.drop` (the waiting powerup, getter), see `src/main.ts`. Motion is judged from
+  the hole position; pixels only for colors. v0.1 used screenshot byte compares.
   Keys via `page.keyboard.down('KeyW')`; mouse via `page.mouse.move`; touch needs a context with
   `hasTouch` and CDP `Input.dispatchTouchEvent` for a real drag. W+A for 14 s reaches the -x -z
   corner. Now in the repo: helpers in `e2e/fixtures.ts`. Tests wait for
@@ -98,6 +101,12 @@ specs green separately); due at the v0.3 milestone.
   below, nothing to hit under the surface but other objects. Physics in the header of
   `src/physics/hole-body.ts`; visuals (edge band + black backdrop at `ABYSS_DEPTH`) in
   `src/player/hole.ts`.
+- **Rendering one module alone** (2026-09-17, puffs, powerups): in a page on the dev server,
+  read the module's source (`fetch('/src/x.ts')`) for the exact `three.js?v=` URL Vite gave it,
+  `import()` that and the module, and render into a new canvas with `preserveDrawingBuffer`;
+  `toDataURL` back to node. Same three instance as the module, no game state needed.
+- **Reaching a drop headless**: drive with held keys, closed loop on `holecity.hole`; never
+  along the drop's row or column, or the hole takes it on the way.
 - **Visual swallow check**: a scratchpad script found the live tree nearest spawn via
   `import('/src/objects/layout.ts')` inside the page (Vite serves source modules; bare
   specifiers like `three` do not resolve there, so borrow `camera.position.clone()` for a

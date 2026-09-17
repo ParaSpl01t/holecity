@@ -133,6 +133,15 @@ function popScale(age: number): number {
 const speedOf = ({ x, y, z }: { x: number; y: number; z: number }) =>
 	Math.hypot(x, y, z);
 
+/**
+ * Magnet powerup (admin, 2026-09-17, "ok for now"): while it is on, objects
+ * that fit the opening and lie within `MAGNET_RANGE` hole radii are pulled
+ * toward the hole at `MAGNET_PULL` m/s², more than grass friction (0.8 g)
+ * holds back.
+ */
+const MAGNET_RANGE = 3;
+const MAGNET_PULL = 30;
+
 const UP = new Vector3(0, 1, 0);
 const ONE = new Vector3(1, 1, 1);
 const ORIGIN = new Vector3(0, 0, 0);
@@ -210,6 +219,11 @@ interface Entity {
 	readonly leaves: Leaf[];
 	readonly parts: Part[];
 	/**
+	 * Horizontal radius, in m, that has to pass the opening: a sphere's radius,
+	 * a cube's half diagonal, a trunk's reach (leaves squeeze).
+	 */
+	readonly fit: number;
+	/**
 	 * Farthest any part reaches from the body's origin, in m. Once the origin is
 	 * that far below the void's backdrop, the object is out of sight and removed.
 	 */
@@ -234,6 +248,8 @@ export interface HoleState {
 	x: number;
 	z: number;
 	radius: number;
+	/** The magnet powerup is on. */
+	magnet: boolean;
 }
 
 export interface Point {
@@ -284,6 +300,8 @@ export interface Objects {
 	/** Physics bodies left: cubes count one each. */
 	count(): number;
 	snapshot(): BodySnapshot[];
+	/** White puffs bursting out of a point; `size` in m. */
+	burst(x: number, y: number, z: number, size: number): void;
 }
 
 /**
@@ -420,6 +438,7 @@ export function createObjects(
 					kind: 'box',
 					half,
 					parts: [{ instances: cubes, slot: cubes.add(spec.color), local }],
+					fit: Math.hypot(half.x, half.z),
 					extent: half.length(),
 				});
 			}
@@ -438,6 +457,7 @@ export function createObjects(
 						local: new Matrix4().makeScale(scale, scale, scale),
 					},
 				],
+				fit: spec.radius,
 				extent: spec.radius,
 			});
 		} else {
@@ -504,6 +524,7 @@ export function createObjects(
 				trunkPieces: pieces,
 				leaves: treeLeaves,
 				parts,
+				fit: Math.max(...pieces.flat().map(({ x, z }) => Math.hypot(x, z))),
 				extent,
 			});
 		}
@@ -654,6 +675,30 @@ export function createObjects(
 		}
 	};
 
+	const magnetImpulse = { x: 0, y: 0, z: 0 };
+	/** Pulls an object toward the hole if the magnet reaches and fits it. */
+	const attract = (entity: Entity, hole: HoleState) => {
+		const { position } = entity.current;
+		const dx = hole.x - position.x;
+		const dz = hole.z - position.z;
+		const distance = Math.hypot(dx, dz);
+		if (
+			distance > MAGNET_RANGE * hole.radius ||
+			distance < 1e-3 ||
+			entity.fit > hole.radius ||
+			// Already on its way down.
+			position.y < -GROUND_THICKNESS
+		) {
+			return;
+		}
+		const { body } = entity;
+		const scale = (body.mass() * MAGNET_PULL * STEP) / distance;
+		magnetImpulse.x = dx * scale;
+		magnetImpulse.z = dz * scale;
+		// Wakes a sleeping object too.
+		body.applyImpulse(magnetImpulse, true);
+	};
+
 	const pullPoint = new Vector3();
 	const velocity = new Vector3();
 	/**
@@ -773,6 +818,7 @@ export function createObjects(
 						continue;
 					}
 				}
+				if (hole.magnet) attract(entity, hole);
 				if (isStranded(entity, asleep)) {
 					startPop(i);
 					continue;
@@ -844,6 +890,7 @@ export function createObjects(
 		count() {
 			return entities.length;
 		},
+		burst: (x, y, z, size) => puffs.burst(x, y, z, size),
 		snapshot() {
 			return entities.map((entity) => {
 				const { current } = entity;
