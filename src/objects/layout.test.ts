@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PLAYZONE_SIZE, PLAYZONE_SEED } from '../world/zones';
+import { debugEnvironment } from '../environments/debug/debug';
+import { PLAYZONE_SIZE } from '../world/zones';
 import {
 	CUBE_SIZE,
 	EDGE_MARGIN,
@@ -13,7 +14,7 @@ import {
 	type ObjectSpec,
 } from './layout';
 
-const layout = generateLayout(PLAYZONE_SEED);
+const layout = generateLayout(debugEnvironment.seed);
 const inRange = (value: number, [min, max]: readonly [number, number]) =>
 	value >= min && value <= max;
 

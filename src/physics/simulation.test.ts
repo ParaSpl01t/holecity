@@ -1,5 +1,6 @@
 import { Scene } from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { debugEnvironment } from '../environments/debug/debug';
 import type { ObjectSpec } from '../objects/layout';
 import type { PieceSnapshot, Point } from '../objects/objects';
 import { GROUND_THICKNESS, HOLE_RADIUS } from '../player/dimensions';
@@ -59,7 +60,7 @@ const liveTree = (x: number): ObjectSpec => ({
 });
 
 const simulate = (specs: ObjectSpec[], holeRadius: number) =>
-	createSimulation(rapier, new Scene(), specs, holeRadius);
+	createSimulation(rapier, new Scene(), debugEnvironment, specs, holeRadius);
 
 type Path = (t: number) => GroundVector;
 const at =

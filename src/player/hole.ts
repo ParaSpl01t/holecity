@@ -18,7 +18,7 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { HOLE_STENCIL } from '../engine/stencil';
 import { palette } from '../world/palette';
-import { BORDER_WIDTH, PLAYZONE_SIZE } from '../world/zones';
+import { LAND_HALF } from '../world/zones';
 import { ABYSS_DEPTH, GROUND_THICKNESS, RING_WIDTH } from './dimensions';
 
 /** Circle segments: smooth edges at the camera's zoom. */
@@ -38,7 +38,6 @@ const BACKDROP_RADIUS = 80;
  * Planes bounding the land (playzone plus borderzone). Nothing of the hole is
  * drawn over the outzone, whatever its size.
  */
-const LAND_HALF = PLAYZONE_SIZE / 2 + BORDER_WIDTH;
 const LAND_CLIP = [
 	new Plane(new Vector3(1, 0, 0), LAND_HALF),
 	new Plane(new Vector3(-1, 0, 0), LAND_HALF),

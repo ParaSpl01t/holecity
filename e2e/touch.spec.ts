@@ -1,3 +1,4 @@
+import { debugPalette } from '../src/environments/debug/palette';
 import type { Page } from '@playwright/test';
 import {
 	HOLE_RADIUS,
@@ -51,7 +52,7 @@ test('a drag shows the joystick and steers the hole along it', async ({
 	// Pinned on the +z edge: the bottom of the screen looks past the
 	// borderzone onto the sea.
 	const [below] = await colorsAt(page, [[cx, height - FPS_STRIP - 10]]);
-	expectColor(below!, palette.sea, 'outzone below the +z edge');
+	expectColor(below!, debugPalette.sea, 'outzone below the +z edge');
 	await finger('touchEnd');
 });
 

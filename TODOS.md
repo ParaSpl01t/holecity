@@ -242,27 +242,34 @@ independent items, see-through after powerups (its targets include halos), the m
 lobby last (both its buttons need a real environment). Phases marked "needs admin decision" wait
 on the questions asked in chat 2026-09-17._
 
-## Phase 10 - environment standard ⬜
+_2026-09-17, admin: "start", with the chat questions unanswered. Phase 10 goes ahead on its
+assumed debug elevations (path 1 m, sea surface 2 m below the path top)._
+
+## Phase 10 - environment standard ✅ (2026-09-17, v0.3.0)
 
 _Inbox: outzone, borderzone and playzone are the standard in every environment, with elevation
 and design variations. Each zone has a base terrain per environment. Tiles stop being global:
 they are the debug environment's (today's) terrain._
 
-- [ ] environment definition: per environment, per zone, its elevation and base terrain (look and
-      collider). Replaces the `src/world/zones.ts` constants and the global tile and palette use
-      in `src/world/terrain.ts`. Resolves the deferred "environment definition" item
-- [ ] elevations: playzone at 0, borderzone top a few m above it, outzone surface a few m below
-      the borderzone top. Debug environment (assumed, to confirm): borderzone stays 1 m (admin,
-      v0.2), sea surface at -1 m (2 m below the path top), outer wall runs down to the sea
-- [ ] debug environment = today's look through the definition: tiled green playzone with accent
-      patches, tiled concrete borderzone, sea outzone. Tile texture, patch generator and palette
-      move under the debug environment
-- [ ] outzone becomes a real surface (one flat mesh around the land), not the clear color:
-      waves need it (Phase 11), and so does a sea level. Clear color stays beyond the mesh
-- [ ] physics takes borderzone height and extent from the definition (static slabs in
-      `src/physics/simulation.ts` today)
-- [ ] unit tests: definition invariants (playzone at 0, borderzone above it, outzone below the
-      borderzone top); tile and patch tests follow the move
+- [x] environment definition (`src/environments/environment.ts`): seed, borderzone height,
+      outzone level, clear color, base terrain builder. Zone sizes stay shared in
+      `src/world/zones.ts` (plus `LAND_HALF`, which `terrain.ts` and `hole.ts` each defined).
+      Resolves the deferred "environment definition" item
+- [x] elevations: playzone at 0, borderzone top above it, outzone surface below the borderzone
+      top. Debug environment (assumed, to confirm): borderzone stays 1 m (admin, v0.2), sea
+      surface at -1 m (2 m below the path top), outer wall runs down to the sea. Seen headless at
+      the +x +z corner: the outer wall strip doubled, no console errors
+- [x] debug environment (`src/environments/debug/`): today's look through the definition. Tile
+      size, patch generator, land texture and ground colors (`debugPalette`) moved there;
+      `src/world/palette.ts` keeps the hole and object colors, shared by every environment
+- [x] outzone is a real surface: a flat square ring from the land edge out 200 m
+      (`OUTZONE_REACH`: fills every view down to a 1:3 portrait window), clear color beyond.
+      Draw calls per frame 9 -> 10 (perf browser test, desktop), which proves it is drawn: it is
+      the clear color's exact color until Phase 11
+- [x] physics takes the borderzone height from the definition (`createSimulation` takes the
+      environment)
+- [x] unit tests: borderzone above the playzone, outzone below the borderzone top, per
+      environment; tile tests moved with the generator. 38 of 38
 
 ## Phase 11 - sea waves ⬜
 
@@ -289,7 +296,11 @@ the path covers the hole (admin, v0.2)._
       the path nudges resting objects back over its ledge into the playzone (keeps every object,
       but objects visibly slide on their own, and a borderzone sloping outward fights the nudge)
 - [ ] objects pushed off the outer edge sink through the sea surface (no sea collider), out of
-      sight, and are removed as today
+      sight, and are removed. Correction (2026-09-17): this line first said "as today". Read in
+      `src/physics/hole-body.ts`, not yet run: the hole's ground reaches 300 m around the hole,
+      past the land edge, so such an object likely rests on invisible ground at y = 0, now 1 m
+      above the sea surface. Prove with a unit test, then fix (e.g. objects past the land edge
+      stop colliding with the hole's ground)
 - [ ] only if toppling from near the edge is the main cause: objects spawn farther from the edge
       (margin grows with the object's height; `EDGE_MARGIN` is 2 m, stacks stand up to 24 m)
 

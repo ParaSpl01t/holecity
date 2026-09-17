@@ -1,5 +1,6 @@
 import type { World } from '@dimforge/rapier3d-compat';
 import type { Scene } from 'three';
+import type { Environment } from '../environments/environment';
 import type { ObjectSpec } from '../objects/layout';
 import {
 	createObjects,
@@ -7,7 +8,7 @@ import {
 	type HoleState,
 } from '../objects/objects';
 import type { GroundVector } from '../player/movement';
-import { BORDER_HEIGHT, BORDER_WIDTH, PLAYZONE_SIZE } from '../world/zones';
+import { BORDER_WIDTH, PLAYZONE_SIZE } from '../world/zones';
 import { createHoleBody } from './hole-body';
 import { createWorld, FRICTION, STEP, type Rapier } from './physics';
 
@@ -32,12 +33,13 @@ export interface Simulation {
 export function createSimulation(
 	rapier: Rapier,
 	scene: Scene,
+	environment: Environment,
 	specs: ObjectSpec[],
 	holeRadius: number
 ): Simulation {
 	const world = createWorld(rapier);
 	const events = new rapier.EventQueue(true);
-	addBorderColliders(rapier, world);
+	addBorderColliders(rapier, world, environment.borderHeight);
 	const holeBody = createHoleBody(rapier, world);
 	const objects = createObjects(rapier, world, scene, specs);
 	const hole: HoleState = { x: 0, z: 0, radius: holeRadius };
@@ -83,11 +85,15 @@ export function createSimulation(
 }
 
 /** The raised borderzone as four static slabs around the playzone. */
-function addBorderColliders(rapier: Rapier, world: World): void {
+function addBorderColliders(
+	rapier: Rapier,
+	world: World,
+	height: number
+): void {
 	const body = world.createRigidBody(rapier.RigidBodyDesc.fixed());
 	const inner = PLAYZONE_SIZE / 2;
 	const halfWidth = BORDER_WIDTH / 2;
-	const halfHeight = BORDER_HEIGHT / 2;
+	const halfHeight = height / 2;
 	const middle = inner + halfWidth;
 	const long = inner + BORDER_WIDTH;
 	const slabs = [

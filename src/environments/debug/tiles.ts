@@ -1,5 +1,8 @@
-import { createRandom } from '../engine/random';
-import { PLAYZONE_SIZE, TILE_SIZE } from './zones';
+import { createRandom } from '../../engine/random';
+import { PLAYZONE_SIZE } from '../../world/zones';
+
+/** Tile side, in m. */
+export const TILE_SIZE = 2;
 
 /** Tile kinds, one byte per tile. */
 export const MAIN = 0;

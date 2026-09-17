@@ -1,15 +1,13 @@
 # MEMORY
 
-**RESUME:** v0.2.0 live (Phases 6-9). Verified 2026-09-16: unit 36/36, browser 20/20; production
-build stamp `a565707` (= tag `v0.2.0`). `v0.2.1` is a docs-only version. v0.3 planned
-2026-09-17 as `TODOS.md` Phases 10-17 (environment standard, sea waves, stranded objects, tree
-trunks, powerup drops, see-through objects, moon environment with terrain relief, lobby). The
-lobby item (launch debug / launch moon) landed in `INBOX.md` mid-planning and made the moon the
-first relief environment. Waiting on admin answers: stranded objects (pop vs nudge back), magnet
-effect and drop rules, see-through targets (hole, halos, both), moon objects and look, plus the
-assumed debug elevations (path 1 m, sea -1 m). Next: Phase 10 when the admin says start
-(Phases 10, 11 and 13 need no answers). The planning commit is
-local only (docs never get their own push); it rides with the next code push.
+**RESUME:** v0.3 in progress, planned 2026-09-17 as `TODOS.md` Phases 10-17 (environment
+standard, sea waves, stranded objects, tree trunks, powerup drops, see-through objects, moon
+environment with terrain relief, lobby). Admin said "start" 2026-09-17. Phase 10 done (v0.3.0):
+environments defined in `src/environments/`, debug environment built through it, sea is a mesh
+at -1 m. Next: Phase 11 (sea waves), then 13 (trunks); neither needs answers. Waiting on admin
+answers for 12, 14, 15, 16: stranded objects (pop vs nudge back), magnet effect and drop rules,
+see-through targets (hole, halos, both), moon objects and look, plus the assumed debug
+elevations (path 1 m, sea -1 m). Last verified live: v0.2.0 (stamp `a565707`, 2026-09-16).
 
 ## GOTCHAS
 
@@ -118,4 +116,6 @@ local only (docs never get their own push); it rides with the next code push.
   is down (translucent white ring, white knob). Permanent: the FPS readout, and on touch screens
   the temporary - / + hole size buttons bottom-right (dark translucent squares).
 - **One draw call per thing where cheap**: merged geometry with vertex colors (hole), data
-  textures instead of per-tile meshes (playzone), clear color instead of a mesh (sea).
+  textures instead of per-tile meshes (playzone). The sea was the clear color until v0.3.0; it
+  is now one flat ring mesh (a surface with a level, for waves), with the clear color beyond.
+  10 draw calls per frame on the debug environment (2026-09-17).

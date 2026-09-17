@@ -11,7 +11,12 @@ The camera looks down at a slight tilt, always locked on the player.
 _AI-updatable: add each new term._
 
 - **hole** - the player, a black hole.
-- **environment** - a themed map with its own terrain, features and objects.
+- **environment** - a themed map with its own terrain, features and objects. Every environment
+  has the same three zones; heights and looks vary (`src/environments/environment.ts`).
+- **base terrain** - an environment's ground in each zone: its look and its relief.
+- **debug environment** - the first environment: tiled grass playzone, tiled concrete
+  borderzone, sea outzone.
+- **land** - playzone plus borderzone.
 - **playzone** - the square the hole moves in.
 - **borderzone** - the concrete path around the playzone.
 - **outzone** - the sea beyond the borderzone.

@@ -1,3 +1,4 @@
+import { debugPalette } from '../src/environments/debug/palette';
 import {
 	HOLE_RADIUS,
 	HOLE_RADIUS_STEP,
@@ -16,7 +17,7 @@ import {
 	waitUntilStill,
 } from './fixtures';
 
-const PATH = [palette.concrete, palette.concreteTint];
+const PATH = [debugPalette.concrete, debugPalette.concreteTint];
 
 test('WASD drives the hole into the -x -z corner, where it stops', async ({
 	page,
@@ -32,7 +33,7 @@ test('WASD drives the hole into the -x -z corner, where it stops', async ({
 		besideHole(page, -13),
 	]);
 	expectColor(path!, PATH, 'borderzone left of the hole');
-	expectColor(sea!, palette.sea, 'outzone past the borderzone');
+	expectColor(sea!, debugPalette.sea, 'outzone past the borderzone');
 	await page.keyboard.up('KeyW');
 	await page.keyboard.up('KeyA');
 });
@@ -50,7 +51,7 @@ test('the hole steers toward the cursor, up to the playzone edge', async ({
 		besideHole(page, 13),
 	]);
 	expectColor(path!, PATH, 'borderzone right of the hole');
-	expectColor(sea!, palette.sea, 'outzone past the borderzone');
+	expectColor(sea!, debugPalette.sea, 'outzone past the borderzone');
 });
 
 test('resting the cursor on the hole stops it', async ({ page }) => {

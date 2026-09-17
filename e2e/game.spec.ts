@@ -1,3 +1,4 @@
+import { debugPalette } from '../src/environments/debug/palette';
 import { palette } from '../src/world/palette';
 import {
 	besideHole,
@@ -13,10 +14,10 @@ import {
 } from './fixtures';
 
 const GREENS = [
-	palette.mainGreen,
-	palette.mainGreenTint,
-	palette.accentGreen,
-	palette.accentGreenTint,
+	debugPalette.mainGreen,
+	debugPalette.mainGreenTint,
+	debugPalette.accentGreen,
+	debugPalette.accentGreenTint,
 ];
 
 test('spawns the hole at the center of the tiled playzone', async ({

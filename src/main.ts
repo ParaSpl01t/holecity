@@ -1,6 +1,7 @@
 import { Color, Scene } from 'three';
 import { startLoop } from './engine/loop';
 import { createRenderer, resizeRenderer } from './engine/renderer';
+import { debugEnvironment } from './environments/debug/debug';
 import { createControls } from './input/controls';
 import { createHoleSizeControls } from './input/hole-size';
 import { generateLayout } from './objects/layout';
@@ -17,20 +18,17 @@ import { moveHole, type GroundVector } from './player/movement';
 import { createFpsCounter } from './ui/fps-counter';
 import { createCameraRig } from './world/camera';
 import { addLights } from './world/lighting';
-import { palette } from './world/palette';
-import { createTerrain } from './world/terrain';
-import { PLAYZONE_SEED } from './world/zones';
 import './style.css';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game');
 if (!canvas) throw new Error('#game canvas missing from index.html');
 
+const environment = debugEnvironment;
 const renderer = createRenderer(canvas);
 const scene = new Scene();
-// The outzone is the clear color: sea wherever terrain is not drawn.
-scene.background = new Color(palette.sea);
+scene.background = new Color(environment.background);
 addLights(scene);
-scene.add(createTerrain(PLAYZONE_SEED));
+scene.add(environment.createTerrain());
 const rig = createCameraRig();
 const fps = createFpsCounter(document.body);
 
@@ -61,8 +59,8 @@ if (new URLSearchParams(location.search).has('e2e')) {
 // and the objects appear once it is ready.
 let simulation: Simulation | undefined;
 void loadRapier().then((rapier) => {
-	const layout = generateLayout(PLAYZONE_SEED);
-	simulation = createSimulation(rapier, scene, layout, holeRadius);
+	const layout = generateLayout(environment.seed);
+	simulation = createSimulation(rapier, scene, environment, layout, holeRadius);
 	// Readiness marker: browser tests wait on it before judging motion.
 	canvas.dataset.physics = 'ready';
 });
