@@ -31,6 +31,17 @@ const COLLAR_SEGMENTS = 24;
 const COLLAR_DROP = 0.05;
 
 /**
+ * Collision groups (Rapier: 16 membership bits, then 16 filter bits). The
+ * ground reaches far past the land's edge, where it must hold nothing up:
+ * objects that leave the land switch to `OFF_LAND_GROUPS` and stop colliding
+ * with the ground and collar, so they fall into the outzone.
+ */
+const GROUND_MEMBERSHIP = 0x0001;
+const GROUND_GROUPS = ((GROUND_MEMBERSHIP << 16) | 0xffff) >>> 0;
+export const OFF_LAND_GROUPS =
+	((0xffff << 16) | (0xffff & ~GROUND_MEMBERSHIP)) >>> 0;
+
+/**
  * Half-height of the zone, in m, whose objects are woken when the hole moves.
  * Sleeping bodies would otherwise hover over the opening.
  */
@@ -78,13 +89,17 @@ export function createHoleBody(rapier: Rapier, world: World): HoleBody {
 		rimHandles.clear();
 		colliders = [
 			...groundDescs(rapier, radius + COLLAR_DROP).map((desc) =>
-				world.createCollider(desc.setFriction(FRICTION), ground)
+				world.createCollider(
+					desc.setFriction(FRICTION).setCollisionGroups(GROUND_GROUPS),
+					ground
+				)
 			),
 			...collarDescs(rapier, radius).map((desc) =>
 				world.createCollider(
 					desc
 						.setFriction(0)
-						.setFrictionCombineRule(rapier.CoefficientCombineRule.Min),
+						.setFrictionCombineRule(rapier.CoefficientCombineRule.Min)
+						.setCollisionGroups(GROUND_GROUPS),
 					collar
 				)
 			),

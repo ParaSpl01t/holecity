@@ -15,4 +15,6 @@ export const palette = {
 	leaves: [0x3fae6a, 0x4cbf76, 0x35a05f],
 	/** Cubes and spheres. */
 	toys: [0xff8fab, 0xffc55c, 0x7ec8ff, 0xb69cff, 0xff7b6b, 0x6be3c4],
+	/** Puffs bursting out of something that pops. */
+	puff: 0xffffff,
 } as const;

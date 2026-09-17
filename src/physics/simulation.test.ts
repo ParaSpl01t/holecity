@@ -7,6 +7,7 @@ import type { PieceSnapshot, Point } from '../objects/objects';
 import { generateTrunk, trunkReach, trunkTop } from '../objects/trunk';
 import { GROUND_THICKNESS, HOLE_RADIUS } from '../player/dimensions';
 import type { GroundVector } from '../player/movement';
+import { LAND_HALF, PLAYZONE_SIZE } from '../world/zones';
 import { loadRapier, STEP, type Rapier } from './physics';
 import { createSimulation, type Simulation } from './simulation';
 
@@ -251,5 +252,35 @@ describe('hole physics', () => {
 			x: t < 0.6 ? 21.5 : Math.max(21.5 - 12 * (t - 0.6), -20),
 			z: 0,
 		}));
+	});
+});
+
+describe('outside the playzone', () => {
+	it('sinks an object that is off the land into the sea', () => {
+		// Over the sea, just past the path. The hole's ground reaches far past
+		// the land; it must not hold the sphere up there.
+		const simulation = simulate([sphere(LAND_HALF + 5, 1.5)], HOLE_RADIUS);
+		run(simulation, 1.5, at(0));
+		const [body] = simulation.snapshot();
+		expect(body, 'still falling, not yet out of sight').toBeDefined();
+		expect(body!.y + 1.5).toBeLessThan(debugEnvironment.outzoneLevel);
+	});
+
+	it('pops an object resting on the path, after a moment', () => {
+		// Starts sunk into the path's top, which pushes it up to rest on it.
+		const simulation = simulate(
+			[sphere(PLAYZONE_SIZE / 2 + 5, 1.5)],
+			HOLE_RADIUS
+		);
+		run(simulation, 0.5, at(0));
+		expect(simulation.remaining).toBe(1);
+		run(simulation, 4, at(0));
+		expect(simulation.remaining).toBe(0);
+	});
+
+	it('never pops an object resting in the playzone', () => {
+		const simulation = simulate([sphere(20, 1.5)], HOLE_RADIUS);
+		run(simulation, 6, at(0));
+		expect(simulation.remaining).toBe(1);
 	});
 });

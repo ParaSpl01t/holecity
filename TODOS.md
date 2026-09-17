@@ -297,27 +297,41 @@ they are the debug environment's (today's) terrain._
       (`worldToScreen`) and lifts the finger first (the joystick covered the new point: first
       run failed with rgb(97,182,216)). Desktop 7 of 7, touch 3 of 3
 
-## Phase 12 - stranded objects ⬜
+## Phase 12 - stranded objects ✅ (2026-09-17, v0.3.3)
 
 _Inbox: objects that end up on top of the borderzone can never be swallowed; admin asks what can
 be done. Cause: the hole's physics opening is in the ground at y = 0, under the path's slabs, and
 the path covers the hole (admin, v0.2)._
 
-- [ ] find how they get there before fixing: a headless run driving the hole along the edges,
-      logging each object that comes to rest on the path and what put it there (toppled stack,
-      shoved sphere climbing the 1 m step, falling tree). Recorded in `MEMORY.md`
+- [x] find how they get there before fixing: a temporary unit-test survey (deleted, not
+      committed) ran the real layout in physics with the hole looping the playzone: along the
+      edges at radius 2 and 4 m, and 12 m / 25 m inside them at radius 4 and 8 m (up to 38 bodies
+      swallowed per run). Nothing came to rest outside the playzone in any run, so the cause was
+      not reproduced (2026-09-17). The pop covers any cause
 - [x] decision (admin, 2026-09-17): pop. An object resting outside the playzone (path, or a
       solid outzone like the moon's) pops after a short delay and is gone. The pop is built here
       and reused by Phase 14. Rejected: the path nudging resting objects back into the playzone
-- [ ] pop: an object at rest outside the playzone for a moment pops and is removed
-- [ ] objects pushed off the outer edge sink through the sea surface (no sea collider), out of
+- [x] pop (`src/objects/objects.ts`): an object whose center of mass rests outside the playzone
+      (asleep, or under 0.3 m/s and 0.5 rad/s) for 1.5 s leaves physics at once, swells to 1.15x
+      in 0.08 s, shrinks to nothing by 0.25 s about its center of mass, then bursts into 8 white
+      puffs (`src/objects/puffs.ts`: one instanced mesh, fixed pool of 64, draws nothing while
+      empty). Sleeping objects are checked too; only objects reaching past the playzone edge
+      pay for the check. Unit tests: a sphere resting on the path is still there at 0.5 s and
+      gone by 4.5 s; one resting in the playzone for 6 s stays. The puff burst was rendered
+      headless from the real module (dev server, own canvas, 3 ages); first pass spread only
+      ~1 m, tiny from the game camera, so speed doubled and drag eased (~2.5 m for a 3 m burst).
+      A whole object popping in the game was not seen: nothing gets stranded in normal play
+- [x] objects pushed off the outer edge sink through the sea surface (no sea collider), out of
       sight, and are removed. Correction (2026-09-17): this line first said "as today". Read in
       `src/physics/hole-body.ts`, not yet run: the hole's ground reaches 300 m around the hole,
       past the land edge, so such an object likely rests on invisible ground at y = 0, now 1 m
-      above the sea surface. Prove with a unit test, then fix (e.g. objects past the land edge
-      stop colliding with the hole's ground)
-- [ ] only if toppling from near the edge is the main cause: objects spawn farther from the edge
-      (margin grows with the object's height; `EDGE_MARGIN` is 2 m, stacks stand up to 24 m)
+      above the sea surface. Proven 2026-09-17: unit test "sinks an object that is off the land
+      into the sea" failed, a sphere 5 m past the path rested at y = 1.5 (top at 3.0, want under
+      the sea at -1). Fixed: objects whose center of mass leaves the land switch collision groups
+      (`OFF_LAND_GROUPS`, `src/physics/hole-body.ts`) and stop colliding with the hole's ground
+      and collar; they still hit the path and other objects. The test now passes
+- [x] only if toppling from near the edge is the main cause: objects spawn farther from the edge.
+      Not done: the survey above showed no such cause
 
 ## Phase 13 - tree trunks ✅ (2026-09-17, v0.3.2)
 

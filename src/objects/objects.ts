@@ -14,9 +14,11 @@ import {
 	type BufferGeometry,
 	type Scene,
 } from 'three';
+import { OFF_LAND_GROUPS } from '../physics/hole-body';
 import { FRICTION, RESTITUTION, STEP, type Rapier } from '../physics/physics';
 import { ABYSS_DEPTH, GROUND_THICKNESS } from '../player/dimensions';
 import { createToonGradient } from '../world/lighting';
+import { LAND_HALF, PLAYZONE_SIZE } from '../world/zones';
 import {
 	createBatch,
 	createInstances,
@@ -24,6 +26,7 @@ import {
 	type Slot,
 } from './instances';
 import type { ObjectSpec, TreeSpec } from './layout';
+import { createPuffs } from './puffs';
 import { createTrunkGeometry, trunkPieces, trunkTop } from './trunk';
 
 /**
@@ -95,6 +98,40 @@ const PULL_DAMPING = 4;
 
 /** Leaf radius or squeeze change worth updating colliders for. */
 const COLLIDER_EPSILON = 0.01;
+
+const PLAYZONE_HALF = PLAYZONE_SIZE / 2;
+
+/**
+ * An object resting outside the playzone (on the path, or on a solid outzone)
+ * can never be swallowed, so after 1.5 s at rest there it pops (admin,
+ * 2026-09-17). At rest: asleep, or slower than `REST_SPEED` m/s and
+ * `REST_SPIN` rad/s.
+ */
+const STRANDED_STEPS = Math.round(1.5 / STEP);
+const REST_SPEED = 0.3;
+const REST_SPIN = 0.5;
+
+/**
+ * A pop: the object swells to `POP_SWELL` times its size over
+ * `POP_SWELL_TIME` s, shrinks to nothing by `POP_TIME` s, then bursts into
+ * puffs.
+ */
+const POP_SWELL = 1.15;
+const POP_SWELL_TIME = 0.08;
+const POP_TIME = 0.25;
+
+/** Pop scale `age` s in: a quick swell, then shrinking to nothing. */
+function popScale(age: number): number {
+	if (age < POP_SWELL_TIME) {
+		const k = age / POP_SWELL_TIME;
+		return 1 + (POP_SWELL - 1) * (1 - (1 - k) ** 2);
+	}
+	const k = Math.min((age - POP_SWELL_TIME) / (POP_TIME - POP_SWELL_TIME), 1);
+	return POP_SWELL * (1 - k * k);
+}
+
+const speedOf = ({ x, y, z }: { x: number; y: number; z: number }) =>
+	Math.hypot(x, y, z);
 
 const UP = new Vector3(0, 1, 0);
 const ONE = new Vector3(1, 1, 1);
@@ -179,6 +216,18 @@ interface Entity {
 	readonly extent: number;
 	readonly previous: Transform;
 	readonly current: Transform;
+	/** Consecutive steps at rest outside the playzone. */
+	strandedSteps: number;
+	/** Past the land's edge: no longer collides with the hole's ground. */
+	offLand: boolean;
+}
+
+/** An object popping: out of physics, still drawn until it is gone. */
+interface Pop {
+	readonly entity: Entity;
+	/** World center of mass when it popped: what it swells and shrinks about. */
+	readonly center: Vector3;
+	age: number;
 }
 
 export interface HoleState {
@@ -313,6 +362,8 @@ export function createObjects(
 			Entity,
 			| 'previous'
 			| 'current'
+			| 'strandedSteps'
+			| 'offLand'
 			| 'half'
 			| 'radius'
 			| 'trunkTop'
@@ -338,6 +389,8 @@ export function createObjects(
 			...entity,
 			previous,
 			current,
+			strandedSteps: 0,
+			offLand: false,
 		});
 	};
 
@@ -456,15 +509,61 @@ export function createObjects(
 		}
 	}
 
-	const remove = (index: number) => {
+	/** Takes an object out of physics and the object list; it stays drawn. */
+	const detach = (index: number): Entity => {
 		const entity = entities[index]!;
-		for (const part of entity.parts) {
-			part.instances.remove(part.slot);
-			if (part.leaf) leafByCollider.delete(part.leaf.collider.handle);
+		for (const leaf of entity.leaves) {
+			leafByCollider.delete(leaf.collider.handle);
 		}
 		world.removeRigidBody(entity.body);
 		const last = entities.pop()!;
 		if (last !== entity) entities[index] = last;
+		return entity;
+	};
+	const undraw = (entity: Entity) => {
+		for (const part of entity.parts) part.instances.remove(part.slot);
+	};
+	const remove = (index: number) => undraw(detach(index));
+
+	const pops: Pop[] = [];
+	const puffs = createPuffs(scene);
+
+	/** Pops object `index`: out of physics now, drawn shrinking a moment more. */
+	const startPop = (index: number) => {
+		const { x, y, z } = entities[index]!.body.worldCom();
+		pops.push({ entity: detach(index), center: new Vector3(x, y, z), age: 0 });
+	};
+
+	/**
+	 * Watches an object that reaches past the playzone's edge. Once its center
+	 * of mass is off the land, it stops colliding with the hole's ground, which
+	 * reaches far past the land, so it falls into the outzone. Returns whether
+	 * it has rested outside the playzone long enough to pop.
+	 */
+	const isStranded = (entity: Entity, asleep: boolean): boolean => {
+		const { position } = entity.current;
+		const reach = Math.max(Math.abs(position.x), Math.abs(position.z));
+		if (reach + entity.extent <= PLAYZONE_HALF) {
+			entity.strandedSteps = 0;
+			return false;
+		}
+		const { body } = entity;
+		const center = body.worldCom();
+		const outside = Math.max(Math.abs(center.x), Math.abs(center.z));
+		if (!entity.offLand && outside > LAND_HALF) {
+			entity.offLand = true;
+			for (let c = 0; c < body.numColliders(); c++) {
+				body.collider(c).setCollisionGroups(OFF_LAND_GROUPS);
+			}
+			body.wakeUp();
+		}
+		const resting =
+			asleep ||
+			(speedOf(body.linvel()) < REST_SPEED &&
+				speedOf(body.angvel()) < REST_SPIN);
+		entity.strandedSteps =
+			outside > PLAYZONE_HALF && resting ? entity.strandedSteps + 1 : 0;
+		return entity.strandedSteps >= STRANDED_STEPS;
 	};
 
 	// Reused every step and frame: no per-frame allocation.
@@ -600,6 +699,9 @@ export function createObjects(
 	const bodyToWorld = new Matrix4();
 	const worldToBody = new Matrix4();
 	const squeezeMatrix = new Matrix4();
+	const popMatrix = new Matrix4();
+	const scaleMatrix = new Matrix4();
+	const moveMatrix = new Matrix4();
 	const matrix = new Matrix4();
 
 	/**
@@ -662,14 +764,20 @@ export function createObjects(
 			step++;
 			for (let i = entities.length - 1; i >= 0; i--) {
 				const entity = entities[i]!;
-				if (entity.body.isSleeping()) continue;
-				readTransform(entity.body, entity.current);
-				// Past the void's backdrop, or off the edge of the world into the sea.
-				if (entity.current.position.y < -(ABYSS_DEPTH + entity.extent)) {
-					remove(i);
+				const asleep = entity.body.isSleeping();
+				if (!asleep) {
+					readTransform(entity.body, entity.current);
+					// Past the void's backdrop, or sunk out of sight in the sea.
+					if (entity.current.position.y < -(ABYSS_DEPTH + entity.extent)) {
+						remove(i);
+						continue;
+					}
+				}
+				if (isStranded(entity, asleep)) {
+					startPop(i);
 					continue;
 				}
-				if (entity.kind !== 'tree') continue;
+				if (asleep || entity.kind !== 'tree') continue;
 				// Pulled through: the trunk base is in the opening, and the top is
 				// not yet below the ground.
 				const pulled =
@@ -678,6 +786,18 @@ export function createObjects(
 				updateLeaves(entity, hole, pulled);
 				if (pulled) pullToAxis(entity, hole);
 			}
+			// Backwards, so the pop moved into a finished one's place has aged.
+			for (let i = pops.length - 1; i >= 0; i--) {
+				const pop = pops[i]!;
+				pop.age += STEP;
+				if (pop.age < POP_TIME) continue;
+				undraw(pop.entity);
+				const { x, y, z } = pop.center;
+				puffs.burst(x, y, z, pop.entity.extent);
+				pops[i] = pops[pops.length - 1]!;
+				pops.pop();
+			}
+			puffs.step();
 		},
 		draw(alpha) {
 			for (const entity of entities) {
@@ -698,6 +818,24 @@ export function createObjects(
 					part.instances.setMatrix(part.slot, matrix);
 				}
 			}
+			for (const { entity, center, age } of pops) {
+				// Scaled about its center of mass; its parts keep their last pose.
+				const s = popScale(age + alpha * STEP);
+				popMatrix
+					.makeTranslation(-center.x, -center.y, -center.z)
+					.premultiply(scaleMatrix.makeScale(s, s, s))
+					.premultiply(
+						moveMatrix.makeTranslation(center.x, center.y, center.z)
+					);
+				bodyMatrix
+					.compose(entity.current.position, entity.current.rotation, ONE)
+					.premultiply(popMatrix);
+				for (const part of entity.parts) {
+					matrix.multiplyMatrices(bodyMatrix, part.local);
+					part.instances.setMatrix(part.slot, matrix);
+				}
+			}
+			puffs.draw(alpha);
 			cubes.commit();
 			spheres.commit();
 			trunks.commit();
