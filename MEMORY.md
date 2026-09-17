@@ -8,9 +8,11 @@ at -1 m. Phase 11 done (v0.3.1): foam shader on the sea. Phase 13 done (v0.3.2):
 trunks, one batch. Every phase left needs admin answers. Waiting on admin
 answers for 12, 14, 15, 16: stranded objects (pop vs nudge back), magnet effect and drop rules,
 see-through targets (hole, halos, both), moon objects and look, plus the assumed debug
-elevations (path 1 m, sea -1 m). Last verified live: v0.3.1, 2026-09-17: `ls-remote` main and
-tag `v0.3.1^{}` = `818fd5a`; production build stamp `818fd5a` on the second poll (10 s);
-headless drive to the +x +z corner on production, physics ready, no console errors, foam drawn.
+elevations (path 1 m, sea -1 m). Last verified live: v0.3.2, 2026-09-17: `ls-remote` main and
+tag `v0.3.2^{}` = `8b08922`; production build stamp `8b08922` on the second poll (10 s);
+headless drive to the +x +z corner on production, physics ready, no console errors, foam and a
+faceted trunk drawn. Browser suite not run as a whole in v0.3 yet (desktop, touch and perf
+specs green separately); due at the v0.3 milestone.
 
 ## GOTCHAS
 
