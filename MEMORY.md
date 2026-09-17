@@ -1,9 +1,17 @@
 # MEMORY
 
-**RESUME:** v0.2 done (Phases 6-9: raised tiled path, physics objects, abyss hole with a solid
-edge, squeezing leaves, temporary size controls). Unit 36/36, browser 20/20 green (2026-09-16).
-Shipping as v0.2.0: see the latest commits and tags for whether it went out. Next: `INBOX.md`
-`## v0.3.0` (sea waves), not yet planned: waits for the admin to ask.
+**RESUME:** v0.2.0 live (Phases 6-9: raised tiled path, physics objects, abyss hole with a solid
+edge, squeezing leaves, temporary size controls). Verified 2026-09-16: unit 36/36, browser
+20/20; production build stamp `a565707` (= tag `v0.2.0`); headless render on production with
+physics ready, all `/assets/*` immutable incl. the Rapier chunk. Next: v0.3 planning, only when
+the admin asks. `INBOX.md` `## v0.3.0` holds 7 items: idle sea waves; trunk as a lightly bent,
+twisting near-square cuboid (refs: `reference/trees/*.png`, 4 images, not yet viewed); objects
+that land on the raised path can never be swallowed (admin asks what to do); environment
+standardisation (per-environment base terrain per zone, elevations and depths, objects conform
+the ground under them; tiles become the debug environment's terrain); powerup drops (magnet in
+a glowing halo, pops on contact); objects hiding more than 50% of the hole turn see-through
+(admin asks about two objects at 49% each). `NOTES.md` holds 3 admin questions about earlier
+chat lines, not yet asked.
 
 ## GOTCHAS
 
@@ -71,6 +79,10 @@ Shipping as v0.2.0: see the latest commits and tags for whether it went out. Nex
   `hasTouch` and CDP `Input.dispatchTouchEvent` for a real drag. W+A for 14 s reaches the -x -z
   corner. Now in the repo: helpers in `e2e/fixtures.ts`. Tests wait for
   `#game[data-physics="ready"]` (set in `src/main.ts`) before judging motion.
+- **Test runtimes** (2026-09-16): `pnpm test` ~2 s (Rapier scenarios included); `pnpm test:e2e`
+  ~1.5 min at 2 workers. Production check after a push: poll `<meta name="build">` until it
+  equals the pushed SHA, then load the page headless, wait for `#game[data-physics="ready"]`,
+  and screenshot. Scratchpad scripts do not survive sessions; the approaches are recorded here.
 - **Physics runs in vitest** (2026-09-16): Rapier's compat build (WASM inlined) loads in node, so
   hole mechanics are unit-tested without a browser (`src/physics/simulation.test.ts`, via
   `Simulation.snapshot()`).
@@ -93,7 +105,7 @@ Shipping as v0.2.0: see the latest commits and tags for whether it went out. Nex
   project only (not user-wide).
 - **`holecity.vercel.app`**: claimed by the project on its first deploy (v0.1.3, 2026-09-16);
   before that an anonymous `curl` got 404 `DEPLOYMENT_NOT_FOUND`. It follows every production
-  deploy (seen by build stamp on v0.1.3, v0.1.4, v0.1.5, v0.1.6).
+  deploy (seen by build stamp on v0.1.3, v0.1.4, v0.1.5, v0.1.6, v0.2.0).
 - **Versioning**: `package.json` created at `0.0.0` (2026-09-16). First bump `minor` -> `v0.1.0`
   (Phase 1), then `patch` per batch within v0.1.x. Verify tags with
   `git ls-remote --tags origin`.
