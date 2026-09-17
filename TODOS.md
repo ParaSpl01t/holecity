@@ -235,8 +235,173 @@ push._
 
 ---
 
+_v0.3.x = phases 10-17, planned from `INBOX.md` `## v0.3.0` (2026-09-17). First bump `minor` ->
+`v0.3.0`. Tests follow the `CLAUDE.md` draft-stage scope. Order: the environment standard first
+(the sea becomes a real surface: the waves draw on it, stranded objects can land on it), then the
+independent items, see-through after powerups (its targets include halos), the moon, and the
+lobby last (both its buttons need a real environment). Phases marked "needs admin decision" wait
+on the questions asked in chat 2026-09-17._
+
+## Phase 10 - environment standard ⬜
+
+_Inbox: outzone, borderzone and playzone are the standard in every environment, with elevation
+and design variations. Each zone has a base terrain per environment. Tiles stop being global:
+they are the debug environment's (today's) terrain._
+
+- [ ] environment definition: per environment, per zone, its elevation and base terrain (look and
+      collider). Replaces the `src/world/zones.ts` constants and the global tile and palette use
+      in `src/world/terrain.ts`. Resolves the deferred "environment definition" item
+- [ ] elevations: playzone at 0, borderzone top a few m above it, outzone surface a few m below
+      the borderzone top. Debug environment (assumed, to confirm): borderzone stays 1 m (admin,
+      v0.2), sea surface at -1 m (2 m below the path top), outer wall runs down to the sea
+- [ ] debug environment = today's look through the definition: tiled green playzone with accent
+      patches, tiled concrete borderzone, sea outzone. Tile texture, patch generator and palette
+      move under the debug environment
+- [ ] outzone becomes a real surface (one flat mesh around the land), not the clear color:
+      waves need it (Phase 11), and so does a sea level. Clear color stays beyond the mesh
+- [ ] physics takes borderzone height and extent from the definition (static slabs in
+      `src/physics/simulation.ts` today)
+- [ ] unit tests: definition invariants (playzone at 0, borderzone above it, outzone below the
+      borderzone top); tile and patch tests follow the move
+
+## Phase 11 - sea waves ⬜
+
+- [ ] idle "bubbled white water" (no reference given, assumed): white foam hugging the
+      borderzone's outer wall that breathes in and out, its sea side broken into round bubbles,
+      plus sparse foam blobs drifting on open water. Flat, pastel, cartoon
+- [ ] one draw call: a shader on the outzone mesh driven by one time uniform. Foam from the
+      distance to the land edge (analytic for a square) and cheap noise; no textures, no CPU
+      work per frame beyond the uniform
+- [ ] seen in a headless screenshot at a playzone corner (most sea in view); motion checked by
+      the admin on the dev server
+
+## Phase 12 - stranded objects ⬜ (needs admin decision)
+
+_Inbox: objects that end up on top of the borderzone can never be swallowed; admin asks what can
+be done. Cause: the hole's physics opening is in the ground at y = 0, under the path's slabs, and
+the path covers the hole (admin, v0.2)._
+
+- [ ] find how they get there before fixing: a headless run driving the hole along the edges,
+      logging each object that comes to rest on the path and what put it there (toppled stack,
+      shoved sphere climbing the 1 m step, falling tree). Recorded in `MEMORY.md`
+- [ ] decision, proposed: an object resting outside the playzone (path, or a solid outzone like
+      the moon's) pops after a short delay and is gone, with the pop from Phase 14. Alternative:
+      the path nudges resting objects back over its ledge into the playzone (keeps every object,
+      but objects visibly slide on their own, and a borderzone sloping outward fights the nudge)
+- [ ] objects pushed off the outer edge sink through the sea surface (no sea collider), out of
+      sight, and are removed as today
+- [ ] only if toppling from near the edge is the main cause: objects spawn farther from the edge
+      (margin grows with the object's height; `EDGE_MARGIN` is 2 m, stacks stand up to 24 m)
+
+## Phase 13 - tree trunks ⬜
+
+_Inbox: not a plain cylinder; slight twist and bends, an almost square base, "a lightly bent in
+a few places long cuboid". References `reference/trees/` (viewed 2026-09-17): `image.png`,
+`image copy.png`, `image copy 2.png` are low-poly stumps: an 8-sided faceted trunk, flat-shaded,
+flaring into pointed root spurs at the base, a cut top with a lighter wood face and a jagged bark
+rim (one with a spiral growth ring, one with a side branch stub). `image copy 3.png` is a lineup
+of low-poly trees: faceted trunks twisted and bent, root flares, some forking into branches,
+faceted green crowns._
+
+- [ ] cross-section: a square with chamfered corners (4 broad faces, 4 narrow bevels), "almost
+      square" and 8-sided like the references. 2 m across, 8 m tall, as today
+- [ ] shape per tree, seeded: 3-4 segments, each bent slightly off the last and twisted a few
+      degrees; slight root flare at the base (from the references, not the inbox text).
+      Flat-shaded facets under the existing toon light. Live and dead trees share the trunk
+- [ ] every trunk unique, still one draw call: a three.js `BatchedMesh` (many geometries, one
+      draw call) replaces the trunk `InstancedMesh`
+- [ ] collider from the same generator: one cuboid per bent segment in the tree's compound body.
+      The crown sits on the bent top; `TRUNK_TOP` in `src/objects/objects.ts` becomes per tree
+- [ ] unit tests: generator bounds (width, height, lean); live and dead trees still swallowed
+      through the default 4 m hole; squeeze and below-ground watch tests still green
+
+## Phase 14 - powerup drops ⬜ (needs admin decision)
+
+_Inbox: a 3D magnet rotating and bobbing inside a glowing spherical halo. When it touches the
+hole's colored ring, the halo pops, the magnet expands, spins exponentially faster, then pops:
+consumed._
+
+- [ ] decision, what the magnet does. Proposed: for 10 s, objects that fit the hole and lie
+      within 3 hole radii are pulled toward it
+- [ ] decision, when and where drops appear. Proposed: one on the map at a time, at a random
+      clear playzone spot outside the spawn clearing, the next ~20 s after the last is taken
+- [ ] magnet: red horseshoe with silver tips, primitives merged into one geometry, toon-lit;
+      spins about y and bobs
+- [ ] halo: sphere with a glowing edge (fresnel shader), additive, pastel
+- [ ] pickup: the hole's ring (radius + 1 m) reaches the halo, judged on the ground plane. Drops
+      float with no physics body; objects pass through them
+- [ ] consume: halo pops (scales up and fades, ~0.15 s); magnet grows while its spin speed
+      rises exponentially; then pops (a quick expanding flash) and is gone. Timings tuned on the
+      dev server
+- [ ] unit tests: pickup distance per hole size, drop placement clear of objects and spawn
+
+## Phase 15 - see-through objects ⬜ (needs admin decision)
+
+_Inbox: an object hiding more than 50% of the halo turns see-through, with side effects to
+expect; admin asks the outcome for two objects hiding 49% each. The item names the halo, its
+question names the hole._
+
+- [ ] decision, targets. Proposed: both the hole (opening plus ring) and every powerup halo
+- [ ] rule, answering 49% + 49%: judge how much of the target is hidden in total, not per object.
+      Over 50% hidden: every object hiding any part of it fades. 49% + 49% = 98% hidden, so both
+      fade; two slivers adding up to 20% fade nothing
+- [ ] measure without GPU readback: ~30 points spread evenly over the target's area, a ray from
+      the camera to each through the physics world, all hits (an object behind another still
+      counts). Hidden share = blocked rays / rays
+- [ ] side effects: hysteresis (fade over 50%, solid again under ~35%) so an object at the line
+      never flickers; fades take ~0.2 s; objects falling into the hole never count (being
+      swallowed, not hiding it); a tree fades whole, trunk and leaves together
+- [ ] rendering: a faded object's instances move to a transparent twin per shape (swap-remove,
+      O(1)) with per-instance opacity; an empty twin draws nothing, so no extra draw calls unless
+      something is faded
+- [ ] unit tests: hidden share for set layouts (one object at 60%: fades; two at 49%: both fade;
+      one at 30%: none), hysteresis
+
+## Phase 16 - moon environment, terrain relief ⬜ (needs admin decision)
+
+_Inbox: any zone's base terrain can have depths and elevations. Moon: 1 m deep craters with a
+0.5 m rough, pointy raised rim; a borderzone rising from a pointy inner edge to 2 m, easing down
+over 10 m to 1 m, so the playzone reads as inside a big crater; outzone like the playzone. Ruined
+city: ground cracks with lava at the bottom. Objects conform the ground under them: a building on
+a crater rim flattens the rim and fills the crater beneath, with slight smoothing; a building
+over a lava crack fills and raises the ground there. Inbox lobby item (added 2026-09-17): the
+moon is launchable, so it is the first environment with relief. The ruined city is an example
+only, not planned._
+
+- [ ] decision, moon objects: the inbox names buildings only as an example. Debug objects
+      (stacks, spheres, trees) on the moon would be a placeholder
+- [ ] decision, moon look: colors of ground, crater floors, rims, borderzone, outzone and sky;
+      crater count and sizes (only the 1 m depth and 0.5 m rim are given)
+- [ ] design first, the hard part: the hole on uneven ground. Today the hole's ground is one flat
+      collider moving with the hole (`src/physics/hole-body.ts`) and the opening a flat stencil
+      disc at y = 0 (`src/player/hole.ts`). Relief has to stay put while the opening moves:
+      Rapier heightfields have no holes, and its JS hooks only filter whole collider pairs, not
+      single contacts (0.20.0 typings, checked 2026-09-17). The mask and ring have to drape
+      over the ground heights. Design recorded in `MEMORY.md` before building
+- [ ] moon playzone: seeded craters, 1 m deep, rough pointy 0.5 m rims. Borderzone: pointy inner
+      edge at 2 m easing down over 10 m to 1 m. Outzone: like the playzone, solid (Phase 12's
+      stranded rule covers it)
+- [ ] ground conforming: heights under each object's footprint flattened or filled with a smooth
+      falloff, once at load, never per frame
+- [ ] unit tests: height profile (crater depth, rim height, borderzone slope), ground flat under
+      a footprint, below-ground watch tests on relief
+
+## Phase 17 - lobby ⬜
+
+_Inbox (added 2026-09-17): a simple lobby with two buttons, launch debug environment and launch
+moon environment. Supersedes v0.1.x "no HUD or lobby, directly spawn in a game"._
+
+- [ ] lobby on load: two buttons, "Launch debug environment" and "Launch moon environment"
+      (admin's wording), in the existing overlay style
+- [ ] launch builds the chosen environment from its definition (Phase 10). three.js and Rapier
+      load while the lobby shows, so a launch starts at once
+- [ ] back to the lobby: none for now (assumed); a reload shows the lobby again
+- [ ] browser tests enter through the lobby (fixture presses the debug button); `?e2e` stays
+
+---
+
 ## deferred
 
 - **hole as ground cutout** - moved into Phase 8 (2026-09-16), now that v0.2 brings objects
-- **environment definition** - generalize zones, palette and terrain into a per-environment
-  definition once a second environment is specced, not before
+- **environment definition** - moved into Phase 10 (2026-09-17): the admin specced the standard
+  in `INBOX.md` `## v0.3.0`

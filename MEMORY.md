@@ -1,17 +1,15 @@
 # MEMORY
 
-**RESUME:** v0.2.0 live (Phases 6-9: raised tiled path, physics objects, abyss hole with a solid
-edge, squeezing leaves, temporary size controls). Verified 2026-09-16: unit 36/36, browser
-20/20; production build stamp `a565707` (= tag `v0.2.0`); headless render on production with
-physics ready, all `/assets/*` immutable incl. the Rapier chunk. Next: v0.3 planning, only when
-the admin asks. `INBOX.md` `## v0.3.0` holds 7 items: idle sea waves; trunk as a lightly bent,
-twisting near-square cuboid (refs: `reference/trees/*.png`, 4 images, not yet viewed); objects
-that land on the raised path can never be swallowed (admin asks what to do); environment
-standardisation (per-environment base terrain per zone, elevations and depths, objects conform
-the ground under them; tiles become the debug environment's terrain); powerup drops (magnet in
-a glowing halo, pops on contact); objects hiding more than 50% of the hole turn see-through
-(admin asks about two objects at 49% each). `NOTES.md` holds 3 admin questions about earlier
-chat lines, not yet asked.
+**RESUME:** v0.2.0 live (Phases 6-9). Verified 2026-09-16: unit 36/36, browser 20/20; production
+build stamp `a565707` (= tag `v0.2.0`). `v0.2.1` is a docs-only version. v0.3 planned
+2026-09-17 as `TODOS.md` Phases 10-17 (environment standard, sea waves, stranded objects, tree
+trunks, powerup drops, see-through objects, moon environment with terrain relief, lobby). The
+lobby item (launch debug / launch moon) landed in `INBOX.md` mid-planning and made the moon the
+first relief environment. Waiting on admin answers: stranded objects (pop vs nudge back), magnet
+effect and drop rules, see-through targets (hole, halos, both), moon objects and look, plus the
+assumed debug elevations (path 1 m, sea -1 m). Next: Phase 10 when the admin says start
+(Phases 10, 11 and 13 need no answers). The planning commit is
+local only (docs never get their own push); it rides with the next code push.
 
 ## GOTCHAS
 
