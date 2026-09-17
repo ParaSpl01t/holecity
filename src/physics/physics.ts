@@ -6,10 +6,11 @@ export type Rapier = typeof import('@dimforge/rapier3d-compat');
 export const STEP = 1 / 60;
 
 /**
- * Gravity, in m/s². Twice Earth's: at these object sizes, Earth gravity reads
- * as slow motion.
+ * Gravity, in m/s². Three times Earth's: at these object sizes, Earth gravity
+ * reads as slow motion. Was twice Earth's until the admin asked for more
+ * (2026-09-17).
  */
-const GRAVITY = 19.6;
+export const GRAVITY = 29.4;
 
 /** Surface friction shared by the ground, walls and objects. */
 export const FRICTION = 0.8;

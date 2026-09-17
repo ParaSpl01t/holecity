@@ -9,7 +9,8 @@ trunks, one batch. Admin answered 2026-09-17 (recorded in the `TODOS.md` v0.3 he
 magnet as proposed, see-through for both, moon greyscale with a very slight blue tint, debug
 elevations confirmed. Still open: moon objects. Phase 12 done (v0.3.3): stranded objects pop,
 off-land objects sink. Phase 14 done (v0.3.4): magnet drops. Phase 15 done: see-through objects, all
-objects in one batch. In progress: Phase 18, gravity increase (admin, mid-Phase 15). Then 16, 17. Last verified live: v0.3.4, 2026-09-17: `ls-remote` main and
+objects in one batch. Gravity raised to 3 g (admin request, Phase 18). Both in v0.3.5. Next:
+Phase 16 (moon), which still needs the admin's answer on moon objects; then 17 (lobby). Last verified live: v0.3.4, 2026-09-17: `ls-remote` main and
 tag `v0.3.4^{}` = `64e8580`; production build stamp `64e8580` on the first poll; headless on
 production: drop appeared, hole driven beside it (halo and magnet drawn), taken, no console
 errors. Browser suite not run as a whole in v0.3 yet (desktop, touch and perf

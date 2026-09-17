@@ -119,7 +119,7 @@ push._
       smaller, but unmaintained since 2022 and weaker at stable stacks); separate-file Rapier
       `.wasm` (760 kB gzip, but needs two Vite plugins)
 - [x] physics world: fixed 60 Hz step with accumulator (max 4 steps per frame), render
-      interpolation, sleeping bodies, gravity 19.6 m/s² (twice Earth's: Earth's reads as slow
+      interpolation, sleeping bodies, gravity 19.6 m/s² (3 g since v0.3.5, Phase 18) (twice Earth's: Earth's reads as slow
       motion at these sizes). Static slabs for the raised borderzone. Rapier loads lazily; the
       ground and hole work before it arrives
 - [x] placement: seeded scatter, no overlaps, 14 m clear around the spawn, 2 m off the edges.
@@ -484,9 +484,11 @@ moon environment. Supersedes v0.1.x "no HUD or lobby, directly spawn in a game".
 
 ## Phase 18 - admin tweaks during v0.3 ⬜
 
-- [ ] increase gravity (admin, 2026-09-17: "increase gravity", no amount given). Today 19.6
-      m/s² (2 g). Tied to it: the magnet pull must stay above grass friction (0.8 g), and fall and
-      swallow timings in the physics tests
+- [x] increase gravity (admin, 2026-09-17: "increase gravity", no amount given): 19.6 m/s² (2 g)
+      -> 29.4 m/s² (3 g), assumed as a clear 50% step (`GRAVITY`, `src/physics/physics.ts`). The
+      magnet pull, a fixed 30 m/s², would have barely beaten grass friction at 3 g (23.5); it is
+      now 1.5 g, so it keeps up with any gravity. All 67 unit tests pass unchanged (fall, swallow
+      and squeeze timings) (v0.3.5)
 
 ---
 

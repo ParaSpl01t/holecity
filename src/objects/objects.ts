@@ -15,7 +15,13 @@ import {
 	type Scene,
 } from 'three';
 import { OFF_LAND_GROUPS } from '../physics/hole-body';
-import { FRICTION, RESTITUTION, STEP, type Rapier } from '../physics/physics';
+import {
+	FRICTION,
+	GRAVITY,
+	RESTITUTION,
+	STEP,
+	type Rapier,
+} from '../physics/physics';
 import { ABYSS_DEPTH, GROUND_THICKNESS } from '../player/dimensions';
 import { createToonGradient } from '../world/lighting';
 import { LAND_HALF, PLAYZONE_SIZE } from '../world/zones';
@@ -138,11 +144,11 @@ const speedOf = ({ x, y, z }: { x: number; y: number; z: number }) =>
 /**
  * Magnet powerup (admin, 2026-09-17, "ok for now"): while it is on, objects
  * that fit the opening and lie within `MAGNET_RANGE` hole radii are pulled
- * toward the hole at `MAGNET_PULL` m/s², more than grass friction (0.8 g)
- * holds back.
+ * toward the hole at `MAGNET_PULL` m/s²: 1.5 g, well past what grass friction
+ * (0.8 g) holds back, whatever gravity is.
  */
 const MAGNET_RANGE = 3;
-const MAGNET_PULL = 30;
+const MAGNET_PULL = 1.5 * GRAVITY;
 
 /**
  * An object hiding the hole or a halo turns see-through (inbox): its alpha
